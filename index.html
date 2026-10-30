@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="コンプレッサーのスレッショルド、レシオ、アタック、リリース、ニー、検出方式、フィードバック構造を、ブラウザ内で動くDSPで聴いて・見て理解できる無料の学習アプリ。">
+<meta name="theme-color" content="#0d6575">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:site_name" content="コンプ解剖ラボ">
+<meta property="og:title" content="コンプ解剖ラボ｜コンプレッサーの仕組みを聴いて理解する">
+<meta property="og:description" content="コンプレッサーのスレッショルド、レシオ、アタック、リリース、ニー、検出方式、フィードバック構造を、ブラウザ内で動くDSPで聴いて・見て理解できる無料の学習アプリ。">
+<meta property="og:url" content="https://kazufumi01.github.io/comp-lab/">
+<meta property="og:image" content="https://kazufumi01.github.io/comp-lab/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://kazufumi01.github.io/comp-lab/">
+<title>コンプ解剖ラボ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: studio rack — visual instruments left (timeline, transfer curve, signal flow), control surface + explanation right, DSP code below */
+:root{
+  --bg:#e6e9ed; --panel:#f6f7f9; --ink:#16202b; --muted:#566271; --line:#c8cfd7; --grid:#dde2e8;
+  --accent:#0d6575; --on-accent:#ffffff; --gr:#c47410; --sig:#9ca7b3; --sel:#e3eef0;
+  --font-ui:"Zen Kaku Gothic New","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151a; --panel:#192027; --ink:#e2e6ea; --muted:#8c97a4; --line:#2a333d; --grid:#212932;
+  --accent:#55b7c5; --on-accent:#0a1a1d; --gr:#eda33c; --sig:#56616e; --sel:#1d2d33; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151a; --panel:#192027; --ink:#e2e6ea; --muted:#8c97a4; --line:#2a333d; --grid:#212932;
+  --accent:#55b7c5; --on-accent:#0a1a1d; --gr:#eda33c; --sig:#56616e; --sel:#1d2d33; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.7}
+.wrap{max-width:1260px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 56px;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3,h4{margin:0;text-wrap:balance}
+.mono{font-family:var(--font-mono)}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:.02em}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px;max-width:60ch}
+.transport{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn,.sel{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:7px 12px;cursor:pointer;min-height:36px}
+.btn:hover,.sel:hover{border-color:var(--muted)}
+.btn:focus-visible,.sel:focus-visible,input:focus-visible,.blk:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700;min-width:96px}
+.btn[aria-pressed="true"]{background:var(--gr);border-color:var(--gr);color:var(--on-accent)}
+.file{position:relative;overflow:hidden}
+.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.status{font-size:12px;color:var(--muted);min-height:1.2em}
+
+/* grid */
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (max-width:920px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.ph h2{font-size:15px;font-weight:700}
+.badge{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.badge.live{border-color:var(--gr);color:var(--gr)}
+canvas{display:block;width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:620px){.row2{grid-template-columns:minmax(0,1fr)}}
+.ro{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-top:12px}
+.ro div{display:flex;flex-direction:column}
+.ro dt{font-size:11px;color:var(--muted)}
+.ro dd{margin:0;font-family:var(--font-mono);font-size:18px;font-variant-numeric:tabular-nums}
+.ro .grv{color:var(--gr)}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+
+/* signal flow */
+.flow-scroll{overflow-x:auto}
+.flow{min-width:540px;width:100%;height:auto;display:block}
+.flow .box{fill:var(--bg);stroke:var(--line);stroke-width:1.2}
+.flow .blk{cursor:pointer}
+.flow .blk:hover .box{stroke:var(--muted)}
+.flow .blk.on .box{stroke:var(--accent);stroke-width:2;fill:var(--sel)}
+.flow text{fill:var(--ink);font-family:var(--font-ui);font-size:12px;text-anchor:middle}
+.flow text.sub{fill:var(--muted);font-family:var(--font-mono);font-size:10px}
+.flow text.lab{fill:var(--muted);font-family:var(--font-mono);font-size:10px;text-anchor:start}
+.flow .wire{fill:none;stroke:var(--muted);stroke-width:1.4}
+.flow .wire.sc{stroke:var(--gr)}
+.flow .dot{fill:var(--muted)}
+.flow .ah{fill:var(--muted)}
+.flow .ah2{fill:var(--gr)}
+.flow[data-topo="ff"] .fb{display:none}
+.flow[data-topo="fb"] .ff{display:none}
+
+/* controls */
+.groups{display:flex;flex-direction:column;gap:14px}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+legend{padding:0;margin-bottom:4px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+legend b{font-size:13px}
+.ctl{display:grid;grid-template-columns:1fr auto;align-items:baseline;column-gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer}
+.ctl:hover{background:var(--bg)}
+.ctl.on{background:var(--sel)}
+.ctl label{cursor:pointer;display:flex;gap:8px;align-items:baseline}
+.ctl .jp{font-weight:500}
+.ctl.on .jp{color:var(--accent)}
+.ctl .en{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.ctl output{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+.ctl input[type=range]{grid-column:1/-1}
+.ctl.dim{opacity:.45}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;grid-column:1/-1;margin-top:4px;width:max-content;max-width:100%}
+.seg button{font:inherit;font-size:12px;background:transparent;color:var(--ink);border:0;padding:5px 12px;cursor:pointer;min-height:30px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);margin-top:-5.5px;border:2px solid var(--panel)}
+input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);border:2px solid var(--panel)}
+input[type=range]:disabled{cursor:not-allowed}
+
+/* explanation */
+.ex h3{font-size:20px;font-weight:700;margin-top:2px}
+.ex .what{font-size:15px;font-weight:500;margin:6px 0 10px}
+.ex p{margin:0 0 10px;max-width:64ch}
+.ex h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:14px 0 6px}
+.ex ul{margin:0;padding-left:1.2em}
+.ex li{margin:2px 0}
+.formula{font-family:var(--font-mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;white-space:pre-wrap;line-height:1.8;overflow-x:auto}
+.calc{font-family:var(--font-mono);font-size:12px;color:var(--accent);margin-top:8px}
+.tries{display:flex;flex-wrap:wrap;gap:6px}
+.tries .btn{font-size:12px;min-height:32px;padding:5px 10px}
+
+/* code */
+pre.code{margin:0;font-family:var(--font-mono);font-size:12.5px;line-height:1.65;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:14px 16px;overflow-x:auto}
+pre.code .c{color:var(--muted)}
+.codehead p{margin:4px 0 12px;color:var(--muted);font-size:13px;max-width:72ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+/* standalone page additions */
+html{-webkit-text-size-adjust:100%}
+body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+a{color:var(--accent)}
+.blog{display:inline-block;margin-top:6px;font-size:13px;font-weight:700;text-decoration:none}
+.blog:hover{text-decoration:underline}
+.ios{font-size:12px;color:var(--muted);margin:0}
+.foot{border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+.foot p{margin:0;max-width:80ch}
+.foot .links{display:flex;flex-wrap:wrap;gap:6px 18px}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <p class="eyebrow">Dynamics Processor / Feed-forward · Feedback</p>
+      <h1>コンプ解剖ラボ</h1>
+      <p>ブラウザ内で実際に動くコンプレッサーDSPを、パラメーター単位で分解して観察します。ヘッドホン推奨。</p>
+      <a class="blog" id="blog-link" href="https://jpk.seesaa.net/" target="_blank" rel="noopener">解説記事を読む →</a>
+    </div>
+    <div class="transport">
+      <button class="btn primary" id="play" type="button">▶ 再生</button>
+      <select class="sel" id="src" aria-label="音源">
+        <option value="loop">ドラム＋ベース＋パッド（92 BPM）</option>
+        <option value="snare">スネア単発（80 BPM・アタック観察用）</option>
+      </select>
+      <label class="btn file">音源ファイルを読み込む<input type="file" id="file" accept="audio/*"></label>
+      <select class="sel" id="preset" aria-label="プリセット"></select>
+      <button class="btn" id="bypass" type="button" aria-pressed="false">バイパス</button>
+    </div>
+  </header>
+  <div class="status" id="status" role="status"></div>
+  <p class="ios">音が出ない場合：iPhone・iPadは消音モード（サイレントスイッチ）を解除し、音量を上げてから「再生」を押してください。</p>
+
+  <main class="grid">
+    <div class="col">
+      <section class="panel">
+        <div class="ph"><h2>レベルとゲインリダクションの時間変化</h2><span class="badge" id="mode">プレビュー（オフライン計算）</span></div>
+        <canvas id="tl" aria-label="入力・出力レベルとゲインリダクションのタイムライン"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--sig)"></i>入力ピーク</span>
+          <span><i style="background:var(--accent)"></i>出力ピーク</span>
+          <span><i style="background:var(--gr)"></i>ゲインリダクション</span>
+          <span><i style="background:transparent;border-top:2px dashed var(--ink);height:0;border-radius:0"></i>スレッショルド</span>
+        </div>
+        <p class="note" id="tlnote">停止中は先頭3秒を同じDSPでオフライン計算して表示しています。パラメーターを動かすと即座に再計算されます。</p>
+      </section>
+
+      <div class="row2">
+        <section class="panel">
+          <div class="ph"><h2>伝達カーブ（静特性）</h2></div>
+          <canvas id="tc" aria-label="入力レベルと出力レベルの関係を示す伝達カーブ"></canvas>
+          <p class="note">線は静特性、点は再生中の実際の動作点。アタック・リリースや検出方式の影響で、点は線から外れます。</p>
+        </section>
+        <section class="panel">
+          <div class="ph"><h2>メーター</h2><span class="badge mono" id="lat">レイテンシ 0.0 ms</span></div>
+          <canvas id="gm" aria-label="ゲインリダクションメーター"></canvas>
+          <dl class="ro">
+            <div><dt id="gr-label">最大GR（3秒間）</dt><dd class="grv" id="ro-max">0.0</dd></div>
+            <div><dt>平均GR（3秒間）</dt><dd id="ro-avg">0.0</dd></div>
+            <div><dt>入力ピーク dBFS</dt><dd id="ro-in">−∞</dd></div>
+            <div><dt>出力ピーク dBFS</dt><dd id="ro-out">−∞</dd></div>
+          </dl>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="ph"><h2>シグナルフロー</h2><span class="eyebrow">ブロックをクリックで解説</span></div>
+        <div class="flow-scroll">
+        <svg class="flow" id="flow" viewBox="0 0 620 226" data-topo="ff" role="img" aria-label="コンプレッサーの信号経路図">
+          <defs>
+            <marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0 L8 4 L0 8 z"/></marker>
+            <marker id="ah2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="ah2" d="M0 0 L8 4 L0 8 z"/></marker>
+          </defs>
+          <text class="lab" x="4" y="52">IN</text>
+          <path class="wire" d="M22 48 H40" marker-end="url(#ah)"/>
+          <g class="blk" data-k="input" tabindex="0" role="button" aria-label="入力ゲイン"><rect class="box" x="40" y="30" width="84" height="36" rx="4"/><text x="82" y="52">入力ゲイン</text></g>
+          <path class="wire" d="M124 48 H160" marker-end="url(#ah)"/>
+          <circle class="dot ff" cx="140" cy="48" r="3"/>
+          <g class="blk" data-k="lookahead" tabindex="0" role="button" aria-label="ルックアヘッド"><rect class="box" x="160" y="30" width="92" height="36" rx="4"/><text x="206" y="52">ルックアヘッド</text></g>
+          <path class="wire" d="M252 48 H282" marker-end="url(#ah)"/>
+          <circle class="dot" cx="266" cy="48" r="3"/>
+          <path class="wire" d="M266 48 V14 H495 V30" marker-end="url(#ah)"/>
+          <text class="lab" x="380" y="27">ドライ（原音）</text>
+          <g class="blk" data-k="vca" tabindex="0" role="button" aria-label="ゲイン素子 VCA"><circle class="box" cx="300" cy="48" r="18"/><text x="300" y="53" style="font-size:16px">×</text></g>
+          <path class="wire" d="M318 48 H344" marker-end="url(#ah)"/>
+          <circle class="dot fb" cx="330" cy="48" r="3"/>
+          <g class="blk" data-k="makeup" tabindex="0" role="button" aria-label="メイクアップ"><rect class="box" x="344" y="30" width="88" height="36" rx="4"/><text x="388" y="52">メイクアップ</text></g>
+          <path class="wire" d="M432 48 H462" marker-end="url(#ah)"/>
+          <g class="blk" data-k="mix" tabindex="0" role="button" aria-label="ミックス"><rect class="box" x="462" y="30" width="66" height="36" rx="4"/><text x="495" y="52">ミックス</text></g>
+          <path class="wire" d="M528 48 H580" marker-end="url(#ah)"/>
+          <text class="lab" x="584" y="52">OUT</text>
+
+          <path class="wire sc ff" d="M140 48 V148" marker-end="url(#ah2)"/>
+          <path class="wire sc fb" d="M330 48 V128 H60 V168 H90" marker-end="url(#ah2)"/>
+          <text class="lab ff" x="146" y="110">FF：入力を検出</text>
+          <text class="lab fb" x="66" y="122">FB：出力を検出</text>
+          <g class="blk" data-k="detector" tabindex="0" role="button" aria-label="検出"><rect class="box" x="90" y="148" width="110" height="40" rx="4"/><text x="145" y="165">検出</text><text class="sub" x="145" y="181">Peak / RMS</text></g>
+          <path class="wire sc" d="M200 168 H222" marker-end="url(#ah2)"/>
+          <g class="blk" data-k="threshold" tabindex="0" role="button" aria-label="ゲインコンピューター"><rect class="box" x="222" y="148" width="124" height="40" rx="4"/><text x="284" y="165">ゲインコンピューター</text><text class="sub" x="284" y="181">T · R · Knee</text></g>
+          <path class="wire sc" d="M346 168 H370" marker-end="url(#ah2)"/>
+          <g class="blk" data-k="attack" tabindex="0" role="button" aria-label="バリスティクス"><rect class="box" x="370" y="148" width="110" height="40" rx="4"/><text x="425" y="165">バリスティクス</text><text class="sub" x="425" y="181">Attack · Release</text></g>
+          <path class="wire sc" d="M425 148 V100 H300 V66" marker-end="url(#ah2)"/>
+          <text class="lab" x="432" y="128">g（dB → 倍率）</text>
+          <text class="lab" x="90" y="214">サイドチェイン：音は通らず「どれだけ下げるか」だけを計算する経路</text>
+        </svg>
+        </div>
+      </section>
+    </div>
+
+    <aside class="col">
+      <section class="panel">
+        <div class="ph"><h2>パラメーター</h2><span class="eyebrow">行をクリックで解説</span></div>
+        <div class="groups" id="groups"></div>
+      </section>
+      <section class="panel ex" id="ex" aria-live="polite"></section>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="codehead">
+      <p class="eyebrow">Bridge to plugin</p>
+      <h2 style="font-size:15px">プラグイン化へのブリッジ：このページのDSPをC++で書くと</h2>
+      <p>上で鳴っている処理の1サンプル分を、JUCEの processBlock 内ループを想定してC++に置き換えたものです。設計は Giannoulis・Massberg・Reiss「Digital Dynamic Range Compressor Design — A Tutorial and Analysis」（JAES, 2012）のフィードフォワード型（ログ領域ゲインコンピューター＋分岐型スムージング）に基づいています。</p>
+    </div>
+    <pre class="code" id="code"></pre>
+  </section>
+  <footer class="foot">
+    <div class="links"><a href="https://jpk.seesaa.net/" target="_blank" rel="noopener">ブログ（コンプレッサー解説記事）</a><span>制作：和史</span></div>
+    <p>このページのDSPは仕組みを学ぶための教育用実装です。特定のハードウェアやプラグインの音を再現するものではありません。</p>
+    <p>本ページに登場する製品名・機種名（1176、LA-2A、Fairchild、FabFilter Pro-C ほか）は各社の商標または登録商標です。説明のための参照であり、各社とは関係ありません。</p>
+    <p>参考文献：D. Giannoulis, M. Massberg, J. D. Reiss, "Digital Dynamic Range Compressor Design — A Tutorial and Analysis," J. Audio Eng. Soc., vol. 60, no. 6, 2012.</p>
+  </footer>
+</div>
+
+<script type="text/plain" id="worklet-wrapper">
+class CompLabProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.c = new CompCore(sampleRate);
+    this.m = new Float32Array(4);
+    this.out = new Float32Array(16);
+    this.k = 0;
+    this.scratch = new Float32Array(128);
+    this.port.onmessage = (e) => this.c.set(e.data);
+  }
+  process(inputs, outputs) {
+    const i = inputs[0], o = outputs[0];
+    if (!i || i.length === 0 || !o || o.length === 0) return true;
+    const n = o[0].length;
+    if (this.scratch.length < n) this.scratch = new Float32Array(n);
+    this.c.run(i[0], i[1] || i[0], o[0], o[1] || this.scratch, n, this.m);
+    this.out.set(this.m, this.k * 4);
+    if (++this.k === 4) { this.port.postMessage(this.out.slice(0)); this.k = 0; }
+    return true;
+  }
+}
+registerProcessor('comp-lab', CompLabProcessor);
+</script>
+
+<script id="comp-core">
+/* ===== DSP core: shared by the AudioWorklet (live) and the offline preview ===== */
+class CompCore {
+  constructor(fs) {
+    this.fs = fs;
+    this.p = { input: 0, threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4,
+               detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 1, bypass: false };
+    this.ms = 0; this.gs = 0; this.fbL = 0; this.fbR = 0;
+    this.size = Math.ceil(fs * 0.012) + 2;
+    this.dL = new Float32Array(this.size); this.dR = new Float32Array(this.size); this.w = 0;
+    this.set({});
+  }
+  set(o) {
+    Object.assign(this.p, o);
+    const p = this.p, fs = this.fs;
+    const tc = (ms) => Math.exp(-1 / (Math.max(ms, 0.001) * 0.001 * fs));
+    this.aA = tc(p.attack); this.aR = tc(p.release); this.aM = tc(p.rms);
+    this.la = Math.min(this.size - 1, Math.round(p.lookahead * 0.001 * fs));
+    this.gIn = Math.pow(10, p.input / 20); this.gMk = Math.pow(10, p.makeup / 20);
+  }
+  static curve(x, T, R, W) {
+    const d = x - T;
+    if (2 * d < -W) return x;
+    if (W > 0 && 2 * Math.abs(d) <= W) return x + (1 / R - 1) * (d + W / 2) * (d + W / 2) / (2 * W);
+    return T + d / R;
+  }
+  run(iL, iR, oL, oR, n, m) {
+    const p = this.p, T = p.threshold, R = p.ratio, W = p.knee;
+    const rms = p.detector === 'rms', fb = p.topology === 'fb', mix = p.mix, byp = p.bypass;
+    let inPk = 0, outPk = 0, grMax = 0, lvlMax = -150;
+    for (let i = 0; i < n; i++) {
+      const xl = iL[i] * this.gIn, xr = iR[i] * this.gIn;
+      const sl = fb ? this.fbL : xl, sr = fb ? this.fbR : xr;
+      let lvl;
+      if (rms) { const e = Math.max(sl * sl, sr * sr); this.ms = this.aM * this.ms + (1 - this.aM) * e; lvl = Math.sqrt(this.ms); }
+      else lvl = Math.max(Math.abs(sl), Math.abs(sr));
+      const xdB = lvl > 1e-7 ? 20 * Math.log10(lvl) : -140;
+      const gc = xdB - CompCore.curve(xdB, T, R, W);
+      const a = gc > this.gs ? this.aA : this.aR;
+      this.gs = a * this.gs + (1 - a) * gc;
+      this.dL[this.w] = xl; this.dR[this.w] = xr;
+      let r = this.w - this.la; if (r < 0) r += this.size;
+      const dl = this.dL[r], dr = this.dR[r];
+      if (++this.w >= this.size) this.w = 0;
+      const g = Math.pow(10, -this.gs / 20);
+      const wl = dl * g, wr = dr * g;
+      this.fbL = wl; this.fbR = wr;
+      let yl, yr;
+      if (byp) { yl = dl; yr = dr; }
+      else { const k = mix * this.gMk; yl = wl * k + dl * (1 - mix); yr = wr * k + dr * (1 - mix); }
+      oL[i] = yl; oR[i] = yr;
+      const ai = Math.max(Math.abs(xl), Math.abs(xr)); if (ai > inPk) inPk = ai;
+      const ao = Math.max(Math.abs(yl), Math.abs(yr)); if (ao > outPk) outPk = ao;
+      if (this.gs > grMax) grMax = this.gs;
+      if (xdB > lvlMax) lvlMax = xdB;
+    }
+    m[0] = inPk; m[1] = outPk; m[2] = grMax; m[3] = lvlMax;
+  }
+}
+</script>
+
+<script>
+(() => {
+const $ = (s) => document.querySelector(s);
+const SRC_SR = 48000, SIM_SEC = 3, BLOCK = 128;
+const neg = (v, d = 1) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+const sgn = (v, d = 1) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d);
+const toDb = (v) => (v > 1e-6 ? 20 * Math.log10(v) : -120);
+
+/* ---------- parameters ---------- */
+const DEFAULTS = { input: 0, threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4,
+  detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 100 };
+const P = { ...DEFAULTS, bypass: false };
+
+const fmtMs = (v) => v < 1 ? Math.round(v * 1000) + ' µs' : v < 10 ? v.toFixed(1) + ' ms' : Math.round(v) + ' ms';
+const CTRL = {
+  input:     { jp: '入力ゲイン', en: 'Input', min: -12, max: 12, step: 0.5, fmt: (v) => sgn(v) + ' dB' },
+  threshold: { jp: 'スレッショルド', en: 'Threshold', min: -60, max: 0, step: 0.5, fmt: (v) => neg(v) + ' dB' },
+  ratio:     { jp: 'レシオ', en: 'Ratio', min: 1, max: 20, log: true, fmt: (v) => (v < 10 ? v.toFixed(1) : Math.round(v)) + ' : 1' },
+  knee:      { jp: 'ニー', en: 'Knee', min: 0, max: 24, step: 0.5, fmt: (v) => v.toFixed(1) + ' dB' },
+  attack:    { jp: 'アタック', en: 'Attack', min: 0.05, max: 200, log: true, fmt: fmtMs },
+  release:   { jp: 'リリース', en: 'Release', min: 10, max: 2000, log: true, fmt: fmtMs },
+  rms:       { jp: 'RMSウィンドウ', en: 'RMS window', min: 1, max: 300, log: true, fmt: fmtMs },
+  lookahead: { jp: 'ルックアヘッド', en: 'Lookahead', min: 0, max: 10, step: 0.1, fmt: (v) => v.toFixed(1) + ' ms' },
+  makeup:    { jp: 'メイクアップ', en: 'Makeup', min: 0, max: 24, step: 0.5, fmt: (v) => sgn(v) + ' dB' },
+  mix:       { jp: 'ミックス', en: 'Dry / Wet', min: 0, max: 100, step: 1, fmt: (v) => Math.round(v) + ' %' },
+};
+const SEGS = {
+  detector: { jp: '検出方式', en: 'Detector', opts: [['peak', 'Peak'], ['rms', 'RMS']] },
+  topology: { jp: 'トポロジー', en: 'Topology', opts: [['ff', 'フィードフォワード'], ['fb', 'フィードバック']] },
+};
+const GROUPS = [
+  { en: 'Input', jp: '入力', keys: ['input'] },
+  { en: 'Gain computer', jp: 'どれだけ圧縮するか', keys: ['threshold', 'ratio', 'knee'] },
+  { en: 'Ballistics', jp: 'どれだけ速く反応するか', keys: ['attack', 'release'] },
+  { en: 'Sidechain', jp: '何を見て判断するか', keys: ['detector', 'rms', 'topology', 'lookahead'] },
+  { en: 'Output', jp: '出力', keys: ['makeup', 'mix'] },
+];
+const PRESETS = [
+  ['default', '初期値', {}],
+  ['vocal', 'ボーカル（光学風：FB＋RMS）', { threshold: -24, ratio: 3, knee: 12, attack: 10, release: 300, makeup: 5, detector: 'rms', rms: 30, topology: 'fb' }],
+  ['drumbus', 'ドラムバス（アタックを通す）', { threshold: -20, ratio: 4, knee: 3, attack: 30, release: 80, makeup: 4 }],
+  ['fast', '速いアタック（ピークを潰す）', { threshold: -22, ratio: 8, knee: 0, attack: 0.2, release: 60, makeup: 7 }],
+  ['glue', 'ミックスバス（グルー）', { threshold: -14, ratio: 2, knee: 6, attack: 30, release: 326, makeup: 1.5, detector: 'rms', rms: 10 }],
+  ['limit', 'リミッター（ルックアヘッド）', { threshold: -8, ratio: 20, knee: 0, attack: 0.5, release: 50, makeup: 6, lookahead: 5 }],
+  ['ny', 'NYパラレル', { threshold: -36, ratio: 10, knee: 0, attack: 1, release: 60, makeup: 10, mix: 35 }],
+];
+
+/* ---------- test signals ---------- */
+function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 * 2 - 1; }; }
+function makeKick(sr, rnd) {
+  const n = Math.round(0.45 * sr), b = new Float32Array(n); let ph = 0;
+  for (let i = 0; i < n; i++) { const t = i / sr; const f = 48 + 120 * Math.exp(-t * 28); ph += 2 * Math.PI * f / sr;
+    let v = Math.sin(ph) * Math.exp(-t * 6.5); if (t < 0.004) v += rnd() * 0.35 * (1 - t / 0.004); b[i] = v; }
+  return b;
+}
+function makeSnare(sr, rnd) {
+  const n = Math.round(0.3 * sr), b = new Float32Array(n); let hp = 0, xp = 0;
+  for (let i = 0; i < n; i++) { const t = i / sr, x = rnd(); hp = 0.82 * (hp + x - xp); xp = x;
+    b[i] = hp * Math.exp(-t * 15) * 0.55 + Math.sin(2 * Math.PI * 185 * t) * Math.exp(-t * 24) * 0.5 + Math.sin(2 * Math.PI * 330 * t) * Math.exp(-t * 32) * 0.2; }
+  return b;
+}
+function makeHat(sr, rnd) {
+  const n = Math.round(0.07 * sr), b = new Float32Array(n); let xp = 0;
+  for (let i = 0; i < n; i++) { const t = i / sr, x = rnd(); b[i] = (x - xp) * Math.exp(-t * 65) * 0.18; xp = x; }
+  return b;
+}
+function normalize(L, R, peak) {
+  let pk = 0; for (let i = 0; i < L.length; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
+  const g = peak / (pk || 1); for (let i = 0; i < L.length; i++) { L[i] *= g; R[i] *= g; }
+}
+function genLoop(sr) {
+  const bpm = 92, step = 60 / bpm / 4, len = Math.round(32 * step * sr);
+  const L = new Float32Array(len), R = new Float32Array(len), rnd = rng(7);
+  const at = (s) => Math.round(s * step * sr);
+  const put = (b, start, gl, gr) => { for (let i = 0; i < b.length; i++) { const j = (start + i) % len; L[j] += b[i] * gl; R[j] += b[i] * gr; } };
+  const kick = makeKick(sr, rnd), snare = makeSnare(sr, rnd), hat = makeHat(sr, rnd);
+  const kicks = [0, 7, 10, 16, 23, 26];
+  kicks.forEach((s) => put(kick, at(s), 0.85, 0.85));
+  [4, 12, 20, 28].forEach((s) => put(snare, at(s), 0.6, 0.66));
+  for (let s = 0; s < 32; s += 2) { const v = s % 4 === 0 ? 1 : 0.6; put(hat, at(s), v * 0.7, v); }
+  [15, 31].forEach((s) => put(hat, at(s), 0.3, 0.4));
+  const roots = [55, 43.65];
+  kicks.forEach((s, idx) => {
+    const next = idx + 1 < kicks.length ? kicks[idx + 1] : 32;
+    const dur = Math.min((next - s) * step, 0.9) - 0.02, n = Math.round(dur * sr), f = roots[s < 16 ? 0 : 1];
+    const b = new Float32Array(n); let ph = 0;
+    for (let i = 0; i < n; i++) { const t = i / sr; ph += 2 * Math.PI * f / sr;
+      const env = Math.min(1, t / 0.005) * (0.75 + 0.25 * Math.exp(-t * 8)) * Math.min(1, (n - i) / (0.02 * sr));
+      b[i] = (Math.sin(ph) + 0.35 * Math.sin(2 * ph) + 0.12 * Math.sin(3 * ph)) * env; }
+    put(b, at(s), 0.32, 0.32);
+  });
+  const chords = [[220, 261.63, 329.63], [174.61, 220, 261.63]];
+  const a = 1 - Math.exp(-2 * Math.PI * 900 / sr);
+  chords.forEach((ch, bar) => {
+    const start = at(bar * 16), n = at(16);
+    ch.forEach((f, vi) => [-1, 1].forEach((det) => {
+      const fr = f * Math.pow(2, det * 4 / 1200); let ph = vi * 0.31 + (det > 0 ? 0.5 : 0), lp = 0;
+      const gl = det < 0 ? 0.8 : 0.45, gr = det < 0 ? 0.45 : 0.8;
+      for (let i = 0; i < n; i++) { ph += fr / sr; if (ph >= 1) ph -= 1; lp += a * ((2 * ph - 1) - lp);
+        const t = i / sr, env = Math.min(1, t / 0.08) * Math.min(1, (n - i) / (0.015 * sr)), v = lp * env * 0.05;
+        const j = (start + i) % len; L[j] += v * gl; R[j] += v * gr; }
+    }));
+  });
+  normalize(L, R, 0.79);
+  return { L, R, sr, bpm, name: 'ドラム＋ベース＋パッド' };
+}
+function genSnare(sr) {
+  const bpm = 80, beat = 60 / bpm, len = Math.round(4 * beat * sr);
+  const L = new Float32Array(len), R = new Float32Array(len), rnd = rng(11);
+  const sn = makeSnare(sr, rnd);
+  for (let k = 0; k < 4; k++) { const st = Math.round(k * beat * sr); for (let i = 0; i < sn.length && st + i < len; i++) { L[st + i] += sn[i]; R[st + i] += sn[i]; } }
+  normalize(L, R, 0.79);
+  return { L, R, sr, bpm, name: 'スネア単発' };
+}
+const sources = {};
+let curKey = 'loop';
+function getSource(k) {
+  if (!sources[k]) { if (k === 'loop') sources[k] = genLoop(SRC_SR); else if (k === 'snare') sources[k] = genSnare(SRC_SR); }
+  return sources[k];
+}
+
+/* ---------- rings & offline preview ---------- */
+function makeRing(sr) { const n = Math.floor(SIM_SEC * sr / BLOCK); return { n, inp: new Float32Array(n), out: new Float32Array(n), gr: new Float32Array(n), w: 0 }; }
+function push(r, a, b, c) { r.inp[r.w] = a; r.out[r.w] = b; r.gr[r.w] = c; r.w = (r.w + 1) % r.n; }
+const coreParams = () => ({ ...P, mix: P.mix / 100 });
+let simRing = null, needSim = true;
+function simulate() {
+  const s = getSource(curKey), core = new CompCore(s.sr); core.set(coreParams());
+  const ring = makeRing(s.sr), len = s.L.length;
+  const bl = new Float32Array(BLOCK), br = new Float32Array(BLOCK), oL = new Float32Array(BLOCK), oR = new Float32Array(BLOCK), m = new Float32Array(4);
+  for (let b = 0; b < ring.n; b++) {
+    for (let i = 0; i < BLOCK; i++) { const j = (b * BLOCK + i) % len; bl[i] = s.L[j]; br[i] = s.R[j]; }
+    core.run(bl, br, oL, oR, BLOCK, m); push(ring, m[0], m[1], m[2]);
+  }
+  ring.w = 0; simRing = ring;
+}
+
+/* ---------- audio ---------- */
+let ctx = null, node = null, srcNode = null, playing = false, liveRing = null;
+const live = { gr: 0, hold: 0, holdT: 0 }; let trail = [];
+const status = (t) => { $('#status').textContent = t || ''; };
+async function ensureCtx() {
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const code = CompCore.toString() + '\n' + $('#worklet-wrapper').textContent;
+  try {
+    const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+    await ctx.audioWorklet.addModule(url);
+  } catch (e) {
+    await ctx.audioWorklet.addModule('comp-worklet.js');
+  }
+  node = new AudioWorkletNode(ctx, 'comp-lab', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+  node.port.onmessage = onMeter;
+  const out = ctx.createGain(); out.gain.value = 0.9;
+  node.connect(out).connect(ctx.destination);
+  liveRing = makeRing(ctx.sampleRate);
+  sendParams();
+}
+const bufCache = {};
+function audioBuffer(k) {
+  if (bufCache[k]) return bufCache[k];
+  const s = getSource(k), b = ctx.createBuffer(2, s.L.length, s.sr);
+  b.copyToChannel(s.L, 0); b.copyToChannel(s.R, 1);
+  return (bufCache[k] = b);
+}
+function startSource() {
+  srcNode = ctx.createBufferSource(); srcNode.buffer = audioBuffer(curKey); srcNode.loop = true;
+  srcNode.connect(node); srcNode.start();
+}
+function stopSource() { if (srcNode) { try { srcNode.stop(); } catch (e) {} srcNode.disconnect(); srcNode = null; } }
+async function togglePlay() {
+  try {
+    if (playing) { stopSource(); playing = false; needSim = true; trail = []; }
+    else { await ensureCtx(); await ctx.resume(); liveRing = makeRing(ctx.sampleRate); startSource(); playing = true; }
+    status('');
+  } catch (e) { status('オーディオを開始できませんでした（' + e.message + '）。ブラウザを更新して再度お試しください。'); playing = false; }
+  $('#play').textContent = playing ? '■ 停止' : '▶ 再生';
+  $('#mode').textContent = playing ? 'ライブ' : 'プレビュー（オフライン計算）';
+  $('#mode').classList.toggle('live', playing);
+  $('#tlnote').textContent = playing
+    ? '再生中の音声をリアルタイムで処理しています。右端が現在です。'
+    : '停止中は先頭3秒を同じDSPでオフライン計算して表示しています。パラメーターを動かすと即座に再計算されます。';
+}
+function onMeter(e) {
+  const a = e.data;
+  for (let k = 0; k < 4; k++) { const o = k * 4; push(liveRing, a[o], a[o + 1], a[o + 2]);
+    const x = P.topology === 'fb' ? toDb(a[o]) : a[o + 3];
+    if (x > -70) trail.push([x, x - a[o + 2] + P.makeup]); }
+  if (trail.length > 28) trail = trail.slice(-28);
+  live.gr = a[14];
+}
+function sendParams() { if (node) node.port.postMessage(coreParams()); }
+
+/* ---------- controls ---------- */
+const toSlider = (c, v) => c.log ? Math.round(1000 * Math.log(v / c.min) / Math.log(c.max / c.min)) : v;
+const fromSlider = (c, s) => c.log ? c.min * Math.pow(c.max / c.min, s / 1000) : +s;
+function buildControls() {
+  const root = $('#groups');
+  GROUPS.forEach((gr) => {
+    const fs = document.createElement('fieldset');
+    fs.innerHTML = `<legend><span class="eyebrow">${gr.en}</span><b>${gr.jp}</b></legend>`;
+    gr.keys.forEach((k) => {
+      const row = document.createElement('div'); row.className = 'ctl'; row.dataset.k = k;
+      if (CTRL[k]) {
+        const c = CTRL[k];
+        row.innerHTML = `<label for="c-${k}"><span class="jp">${c.jp}</span><span class="en">${c.en}</span></label><output id="v-${k}" for="c-${k}"></output>
+          <input type="range" id="c-${k}" min="${c.log ? 0 : c.min}" max="${c.log ? 1000 : c.max}" step="${c.log ? 1 : c.step}">`;
+        row.querySelector('input').addEventListener('input', (e) => { P[k] = fromSlider(c, e.target.value); paramChanged(k); });
+      } else {
+        const s = SEGS[k];
+        row.innerHTML = `<label><span class="jp">${s.jp}</span><span class="en">${s.en}</span></label><span></span>
+          <div class="seg" role="group" aria-label="${s.jp}">${s.opts.map(([v, t]) => `<button type="button" id="s-${k}-${v}" data-v="${v}">${t}</button>`).join('')}</div>`;
+        row.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { P[k] = b.dataset.v; paramChanged(k); }));
+      }
+      row.addEventListener('pointerdown', () => selectEx(k));
+      row.addEventListener('focusin', () => selectEx(k));
+      fs.appendChild(row);
+    });
+    root.appendChild(fs);
+  });
+}
+function syncControls() {
+  Object.keys(CTRL).forEach((k) => {
+    const c = CTRL[k], el = $('#c-' + k);
+    if (document.activeElement !== el) el.value = toSlider(c, P[k]);
+    $('#v-' + k).textContent = c.fmt(P[k]);
+  });
+  Object.keys(SEGS).forEach((k) => SEGS[k].opts.forEach(([v]) => $(`#s-${k}-${v}`).setAttribute('aria-pressed', P[k] === v)));
+  const rmsOn = P.detector === 'rms';
+  $('#c-rms').disabled = !rmsOn; document.querySelector('.ctl[data-k="rms"]').classList.toggle('dim', !rmsOn);
+  $('#flow').dataset.topo = P.topology;
+  $('#lat').textContent = `レイテンシ ${P.lookahead.toFixed(1)} ms`;
+}
+function paramChanged(k) {
+  syncControls(); sendParams(); needSim = true;
+  if (k && exKey && (k === exKey || DYN.has(exKey))) renderEx();
+}
+function applyParams(o) {
+  const bpm = getSource(curKey).bpm || 120;
+  Object.entries(o).forEach(([k, v]) => {
+    if (v === 'eighth') v = Math.round(30000 / bpm);
+    if (v === 'auto') v = Math.max(0, Math.round(stats.avg * 2) / 2);
+    P[k] = v;
+  });
+  paramChanged('_'); renderEx();
+}
+
+/* ---------- explanations ---------- */
+const sub = (s) => `<sub>${s}</sub>`;
+const EX = {
+  input: { jp: '入力ゲイン', en: 'Input gain', what: 'コンプに入る前の音量。',
+    body: ['デジタルコンプではスレッショルドを下げるのとほぼ同じ働きです。1176やLA-2Aのようにスレッショルドが固定の機種では、入力を上げることがそのまま「圧縮量を増やす」操作になります。',
+           '入力を上げると出力も上がるので、聴き比べのときはメイクアップ側で戻して音量を揃えてください。アナログエミュレーションでは入力レベルがサチュレーション量も決めますが、このページのDSPは歪みを加えないクリーンな設計です。'],
+    typ: ['固定スレッショルド型（1176・LA-2A系）：入力で圧縮量、出力で音量', 'スレッショルド型（FabFilter Pro-C 3 等）：スレッショルドで圧縮量'],
+    f: `x' = x · 10${'<sup>Input/20</sup>'}`,
+    tries: [['+8 dB 突っ込む', { input: 8 }], ['0 dB に戻す', { input: 0 }]] },
+  threshold: { jp: 'スレッショルド', en: 'Threshold', what: '圧縮が始まる境界線。検出レベルがここを超えた分だけゲインが下がります。',
+    body: ['スレッショルドは「どこから圧縮するか」、レシオは「どれだけ圧縮するか」を決めます。下げるほど小さな音まで圧縮対象になり、GR（ゲインリダクション）の量と頻度が増えます。',
+           '音を決めるのは数値そのものより「GRが何dB、どのタイミングで動いているか」です。タイムラインのGRレーンと、点線（スレッショルド）を超えているピークを見比べながら合わせてください。'],
+    typ: ['ボーカル：ピークで3〜6 dB GR になる位置', 'ドラムバス：キック・スネアのヒットで2〜4 dB', 'ミックスバス：1〜2 dB（針が軽く触れる程度）'],
+    f: `x${sub('dB')} &gt; T のとき\ny${sub('dB')} = T + (x${sub('dB')} − T) / R`,
+    tries: [['T = −10 dB（ピークだけ）', { threshold: -10 }], ['T = −30 dB（常に圧縮）', { threshold: -30 }]] },
+  ratio: { jp: 'レシオ', en: 'Ratio', what: 'スレッショルドを超えた分を、何分の1に縮めるか。',
+    body: ['4:1なら、スレッショルドを8 dB超えた入力は超過2 dBに縮みます（GR = 6 dB）。比率が上がるほど超過分は平らになり、∞:1（実用上は20:1以上）でリミッターとして振る舞います。',
+           '低いレシオ＋深いスレッショルドは「薄く全体を整える」、高いレシオ＋浅いスレッショルドは「ピークだけ叩く」。同じGR量でも性格がまったく違うので、伝達カーブの折れ方で確認してください。'],
+    typ: ['ミックスバス：1.5〜2:1', 'ボーカル：2〜4:1', 'ドラム・ベース：4〜8:1', 'リミッティング：10:1〜∞'],
+    f: `GR = (x${sub('dB')} − T) · (1 − 1/R)`,
+    tries: [['1.5 : 1', { ratio: 1.5 }], ['20 : 1', { ratio: 20 }]] },
+  knee: { jp: 'ニー', en: 'Knee', what: 'スレッショルド付近で、圧縮のかかり始めをどれだけなめらかにするか。',
+    body: ['ハードニー（0 dB）はスレッショルドを超えた瞬間に設定レシオが全開になります。ソフトニーは T を中心とした幅 W の範囲で、レシオが1:1から設定値まで二次曲線で徐々に移行します。',
+           '圧縮の開始点がぼやけるので、GRの出入りが目立たず透明に聴こえます。光学式（LA-2A系）の自然さは、実質的に非常に広いソフトニーを持つことが一因です。伝達カーブの塗りつぶし部分がニーの範囲です。'],
+    typ: ['透明に整えたい：6〜12 dB', 'アタック感・存在感を出したい：0〜3 dB'],
+    f: `|2(x − T)| ≤ W の区間\ny = x + (1/R − 1)(x − T + W/2)² / 2W`,
+    tries: [['ハードニー 0 dB', { knee: 0 }], ['ソフトニー 18 dB', { knee: 18 }]] },
+  attack: { jp: 'アタック', en: 'Attack', what: 'GRが目標値に向かって深くなる速さ。',
+    body: ['このページのアタックは時定数 τ（目標の約63%に届くまでの時間）です。遅いアタックでは、トランジェントが圧縮される前に通り抜けるので立ち上がりが強調され「パンチ」が出ます。速いアタックは立ち上がりから潰すので、音が奥に下がり密度が上がります。',
+           '数ms以下になると、低域の波形1周期（50 Hzで20 ms）の内側でゲインが揺れ、波形そのものを変形させて歪みになります。また、メーカーごとに時間の定義（63%・90%・一定dB到達など）が違うため、同じ「10 ms」でも機種間で一致しません。スネア単発の音源で聴くと違いがはっきりします。'],
+    typ: ['1176系：20〜800 µs（非常に速い）', 'ボーカル：3〜15 ms', 'ドラムのパンチを残す：20〜40 ms', 'ミックスバス：10〜30 ms'],
+    f: `g${sub('s')}[n] = α${sub('A')}·g${sub('s')}[n−1] + (1 − α${sub('A')})·g${sub('c')}[n]\nα${sub('A')} = e<sup>−1 / (τ<sub>A</sub>·f<sub>s</sub>)</sup>`,
+    tries: [['スネア単発に切替', null, 'snare'], ['0.1 ms（潰す）', { attack: 0.1 }], ['30 ms（通す）', { attack: 30 }]] },
+  release: { jp: 'リリース', en: 'Release', what: '入力がスレッショルドを下回ったあと、GRが0へ戻る速さ。',
+    body: ['速いリリースはGRがすぐ戻るので平均音量が上がり、音が前に出ます。ただし速すぎると低域の波形を追いかけて歪み、GRの上下が「ポンピング」として聴こえます（ループ音源のパッドに注目）。',
+           '遅いリリースは次の音が来るまでGRが戻りきらず、ずっと押さえつけられた平坦な音になります。「次の拍の直前で戻りきる」長さにすると、GRが曲と一緒に呼吸します。'],
+    typ: ['ボーカル：80〜300 ms', 'ドラムバス：50〜150 ms', 'ミックスバス：100〜600 ms'],
+    f: `g${sub('c')} &lt; g${sub('s')}（GRを浅くする方向）のとき α${sub('R')} を使う\n→ アタックとリリースで係数を分岐（branching smoother）`,
+    tries: [['30 ms（ポンピング）', { release: 30 }], ['8分音符に合わせる', { release: 'eighth' }], ['1200 ms（押さえっぱなし）', { release: 1200 }]] },
+  detector: { jp: '検出方式', en: 'Detector', what: 'サイドチェインが、何を「音量」として測るか。',
+    body: ['Peak は波形の瞬間的な振幅を見るので、トランジェントに即座に反応します。RMS は振幅の2乗を一定時間平均したエネルギー量で、人の耳が感じる音量（ラウドネス）に近い動きになります。',
+           '同じスレッショルドでも、RMS は瞬間的なピークを平均の中に埋もれさせるので、トランジェントを通しやすく、GRは浅く・なめらかになります。'],
+    typ: ['ピーク管理・トランジェント制御：Peak', 'ボーカルやバスを自然に整える：RMS（5〜50 ms）'],
+    f: `Peak: x = max(|L|, |R|)   ← ステレオリンク\nRMS : m[n] = α·m[n−1] + (1−α)·x²,  x = √m`,
+    tries: [['Peak', { detector: 'peak' }], ['RMS 50 ms', { detector: 'rms', rms: 50 }]] },
+  rms: { jp: 'RMSウィンドウ', en: 'RMS window', what: 'RMS検出で平均をとる時間。',
+    body: ['短いほどPeakに近づき、長いほどゆっくりした平均音量にだけ反応します。',
+           '窓を長くするとアタックを遅くしたのと似た効果がありますが、働く場所が違います。RMSウィンドウは「何を見るか（検出）」、アタックは「見えた結果にどれだけ速く従うか（バリスティクス）」です。Peak選択中は無効です。'],
+    typ: ['5〜10 ms：Peak寄りの素早い検出', '30〜80 ms：ラウドネス寄り'],
+    f: `α = e<sup>−1 / (窓長·f<sub>s</sub>)</sup>`,
+    tries: [['RMS 5 ms', { detector: 'rms', rms: 5 }], ['RMS 80 ms', { detector: 'rms', rms: 80 }]] },
+  topology: { jp: 'トポロジー', en: 'Topology', what: 'サイドチェインに送る信号を、ゲイン素子の前から取るか後ろから取るか。',
+    body: ['フィードフォワード（FF）は入力を検出するので、静特性どおりの正確なレシオになります。現代のVCAコンプやデジタルコンプの多くがこの方式です。',
+           'フィードバック（FB）は圧縮後の出力を検出します。GRが深くなるほど検出レベルも下がるので自己抑制的に働き、実効レシオが緩く、かかり方がなめらかになります。LA-2AやFairchild 660など、多くのビンテージ機がこの構造です。FBで再生すると、伝達カーブ上の点が静特性の線より上に外れるのが見えます。'],
+    typ: ['正確なピーク管理：FF', 'ビンテージ的な粘り・自然さ：FB'],
+    f: `FF: 検出 ← x[n]（入力）\nFB: 検出 ← y[n−1]（1サンプル前の出力）`,
+    tries: [['フィードフォワード', { topology: 'ff' }], ['フィードバック', { topology: 'fb' }]] },
+  lookahead: { jp: 'ルックアヘッド', en: 'Lookahead', what: '音声だけを遅らせて、サイドチェインに「少し先の音」を見せる。',
+    body: ['アタックをどれだけ速くしても、ゲインは入力を見てから動くので、立ち上がりの最初の数サンプルは素通りします。ルックアヘッドは本線の音声を数ms遅らせ、トランジェントが到着する前にGRを始めます。',
+           'マスタリングリミッターがオーバーシュートなしでピークを止められるのはこの仕組みです。代償としてレイテンシが生じ、DAWはプラグイン遅延補正（PDC）で他のトラックと時間を揃えます。'],
+    typ: ['リミッター：1〜5 ms', '通常のコンプ：0 ms（使わないことが多い）'],
+    f: `y[n] = x[n − D] · g[n]\nD = lookahead · f${sub('s')}   ← ホストにレイテンシとして報告`,
+    tries: [['0 ms', { lookahead: 0 }], ['5 ms ＋ アタック 2 ms', { lookahead: 5, attack: 2 }]] },
+  makeup: { jp: 'メイクアップ', en: 'Makeup gain', what: '圧縮で下がった音量を、出力側で持ち上げる。',
+    body: ['コンプはピークを下げる処理なので、そのままでは全体が小さくなります。メイクアップでピークを元の位置に戻すと、平均レベルが上がって密度が増したように聴こえます。',
+           '聴き比べでは必ず音量を揃えてください。人の耳は1 dBの差でも大きい方を「良い音」と判断しがちで、コンプの効果ではなく音量差を聴いてしまいます。バイパスと切り替えて体感音量が同じになる位置を探すのが基本です。'],
+    typ: ['平均GRと同じくらいから試す', 'バイパスと切り替えて同じ体感音量になる位置'],
+    f: `g = 10<sup>(−g<sub>s</sub> + M) / 20</sup>`,
+    tries: [['0 dB', { makeup: 0 }], ['平均GRに合わせる', { makeup: 'auto' }]] },
+  mix: { jp: 'ミックス', en: 'Dry / Wet', what: '圧縮した音（ウェット）と原音（ドライ）の混合比。',
+    body: ['いわゆるパラレルコンプ（ニューヨーク・コンプレッション）です。ウェットは強く潰して密度と持続を作り、ドライはトランジェントをそのまま保ちます。混ぜると、アタックを失わずに小さな音だけが持ち上がります。',
+           'プラグイン内部で混ぜると、DAWのセンドで並列にする場合と違って、ルックアヘッドなどの遅延差による位相ずれが起きません（ドライも同じだけ遅らせているため）。'],
+    typ: ['NYコンプ：ウェット20〜50%＋強めの圧縮', '通常：100%'],
+    f: `y = mix · (x · g · M) + (1 − mix) · x`,
+    tries: [['NYパラレル設定', { threshold: -36, ratio: 10, knee: 0, attack: 1, release: 60, mix: 35, makeup: 10 }], ['100% に戻す', { mix: 100 }]] },
+  vca: { jp: 'ゲイン素子（VCA）', en: 'Gain element', what: 'サイドチェインが計算したゲインを、実際に音声へ掛け算する部分。',
+    body: ['サイドチェインは「どれだけ下げるか」を計算するだけで、音を変えるのはこの掛け算です。アナログでは VCA（電圧制御アンプ）、FET（1176）、光学セル（LA-2A）、真空管（Variable-Mu）がこの役割を担い、素子ごとの反応速度や歪みがコンプの個性になります。',
+           'デジタルでは単純な乗算なので、キャラクターは検出とバリスティクスの設計、そして意図的に加えるサチュレーションで作ります。オリジナルプラグインの個性をどこで出すか考えるときの出発点です。'],
+    typ: ['VCA：速く正確', 'FET：非常に速いアタック（1176系）', '光学：プログラム依存の遅い反応（LA-2A系）', 'Variable-Mu：ゆるやかで太い（Fairchild系）'],
+    f: `y[n] = x[n − D] · 10<sup>−g<sub>s</sub>[n] / 20</sup>`,
+    tries: [] },
+};
+const DYN = new Set(['threshold', 'ratio', 'knee', 'release', 'makeup']);
+let exKey = 'threshold';
+function selectEx(k) { if (exKey === k) return; exKey = k; renderEx(); }
+function renderEx() {
+  const e = EX[exKey]; if (!e) return;
+  let extra = '';
+  if (exKey === 'threshold' || exKey === 'ratio' || exKey === 'knee') {
+    const x = -6, y = CompCore.curve(x, P.threshold, P.ratio, P.knee), x2 = P.threshold - 6, y2 = CompCore.curve(x2, P.threshold, P.ratio, P.knee);
+    extra = `<div class="calc">現在の設定で：入力 −6.0 dB → 出力 ${neg(y)} dB（GR ${(x - y).toFixed(1)} dB）／入力 ${neg(x2)} dB → GR ${(x2 - y2).toFixed(1)} dB</div>`;
+  }
+  let typ = e.typ.slice();
+  if (exKey === 'release') {
+    const s = getSource(curKey), bpm = s.bpm || 120, q = 60000 / bpm;
+    typ.unshift(`いまの音源（${bpm} BPM${s.bpm ? '' : '・不明のため仮定'}）：4分音符 = ${Math.round(q)} ms、8分音符 = ${Math.round(q / 2)} ms`);
+  }
+  $('#ex').innerHTML = `<p class="eyebrow">${e.en}</p><h3>${e.jp}</h3><p class="what">${e.what}</p>
+    ${e.body.map((t) => `<p>${t}</p>`).join('')}
+    <h4>目安</h4><ul>${typ.map((t) => `<li>${t}</li>`).join('')}</ul>
+    <h4>DSPでは</h4><div class="formula">${e.f}</div>${extra}
+    ${e.tries.length ? `<h4>聴き比べ</h4><div class="tries">${e.tries.map((t, i) => `<button class="btn" type="button" data-i="${i}">${t[0]}</button>`).join('')}</div>` : ''}`;
+  $('#ex').querySelectorAll('.tries .btn').forEach((b) => b.addEventListener('click', () => {
+    const t = e.tries[+b.dataset.i];
+    if (t[2]) { $('#src').value = t[2]; switchSource(t[2]); }
+    if (t[1]) applyParams(t[1]);
+  }));
+  document.querySelectorAll('.ctl').forEach((r) => r.classList.toggle('on', r.dataset.k === exKey));
+  document.querySelectorAll('.flow .blk').forEach((b) => b.classList.toggle('on', b.dataset.k === exKey || (exKey === 'release' && b.dataset.k === 'attack') || ((exKey === 'ratio' || exKey === 'knee') && b.dataset.k === 'threshold') || ((exKey === 'rms' || exKey === 'topology') && b.dataset.k === 'detector')));
+}
+
+/* ---------- source switching ---------- */
+function switchSource(k) {
+  curKey = k; needSim = true;
+  if (playing) { stopSource(); startSource(); liveRing = makeRing(ctx.sampleRate); trail = []; }
+  if (exKey === 'release') renderEx();
+}
+
+/* ---------- drawing ---------- */
+const tl = $('#tl'), tc = $('#tc'), gm = $('#gm');
+function tok() {
+  const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+  return { ink: g('--ink'), muted: g('--muted'), grid: g('--grid'), accent: g('--accent'), gr: g('--gr'), sig: g('--sig'), line: g('--line'), mono: g('--font-mono') };
+}
+function fit(c, hCss) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth || 300, h = hCss == null ? w : hCss;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); c.style.height = h + 'px'; }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  return { w, h, g };
+}
+const ringNow = () => (playing && liveRing ? liveRing : simRing);
+const stats = { max: 0, avg: 0, inPk: 0, outPk: 0 };
+function computeStats(r) {
+  let mx = 0, sum = 0, ip = 0, op = 0;
+  for (let i = 0; i < r.n; i++) { const g = r.gr[i]; if (g > mx) mx = g; sum += g; if (r.inp[i] > ip) ip = r.inp[i]; if (r.out[i] > op) op = r.out[i]; }
+  stats.max = mx; stats.avg = sum / r.n; stats.inPk = ip; stats.outPk = op;
+}
+function drawTimeline(t, r) {
+  const { w, h, g } = fit(tl, 280);
+  const padL = 36, padR = 22, top1 = 8, h1 = 168, top2 = top1 + h1 + 26, h2 = h - top2 - 6;
+  const lo = -48, hi = 6, Y = (d) => top1 + (1 - (Math.max(lo, Math.min(hi, d)) - lo) / (hi - lo)) * h1;
+  const GRM = 24, Yg = (v) => top2 + Math.min(v, GRM) / GRM * h2;
+  g.font = `10px ${t.mono}`; g.lineWidth = 1; g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (let d = 0; d >= -48; d -= 12) { const y = Math.round(Y(d)) + 0.5; g.strokeStyle = t.grid; g.beginPath(); g.moveTo(padL, y); g.lineTo(w - padR, y); g.stroke(); g.fillStyle = t.muted; g.fillText(d === 0 ? '0' : neg(d, 0), padL - 6, y); }
+  for (let d = 0; d <= 24; d += 6) { const y = Math.round(Yg(d)) + 0.5; g.strokeStyle = t.grid; g.beginPath(); g.moveTo(padL, y); g.lineTo(w - padR, y); g.stroke(); g.fillStyle = t.muted; g.fillText(d === 0 ? '0' : neg(-d, 0), padL - 6, y); }
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = t.muted;
+  g.fillText('LEVEL dBFS', padL + 4, top1 + 10); g.fillText('GR dB', padL + 4, top2 - 8);
+  if (!r) return;
+  const n = r.n, X = (j) => padL + j / (n - 1) * (w - padL - padR), idx = (j) => (r.w + j) % n;
+  g.beginPath(); g.moveTo(X(0), Y(lo));
+  for (let j = 0; j < n; j++) g.lineTo(X(j), Y(toDb(r.inp[idx(j)])));
+  g.lineTo(X(n - 1), Y(lo)); g.closePath(); g.globalAlpha = 0.75; g.fillStyle = t.sig; g.fill(); g.globalAlpha = 1;
+  g.beginPath();
+  for (let j = 0; j < n; j++) { const y = Y(toDb(r.out[idx(j)])); j ? g.lineTo(X(j), y) : g.moveTo(X(j), y); }
+  g.strokeStyle = t.accent; g.lineWidth = 1.4; g.stroke();
+  const ty = Math.round(Y(P.threshold)) + 0.5;
+  g.setLineDash([5, 4]); g.strokeStyle = t.ink; g.lineWidth = 1; g.beginPath(); g.moveTo(padL, ty); g.lineTo(w - padR, ty); g.stroke(); g.setLineDash([]);
+  g.fillStyle = t.ink; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('T', w - padR + 6, ty);
+  g.beginPath(); g.moveTo(X(0), top2);
+  for (let j = 0; j < n; j++) g.lineTo(X(j), Yg(r.gr[idx(j)]));
+  g.lineTo(X(n - 1), top2); g.closePath(); g.globalAlpha = 0.85; g.fillStyle = t.gr; g.fill(); g.globalAlpha = 1;
+  g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = t.muted;
+  g.fillText(playing ? '← 3秒前　現在 →' : '0 s → 3 s', w - padR, h - 2 > top2 ? top2 - 8 : h - 2);
+}
+function drawTransfer(t) {
+  const { w, h, g } = fit(tc, null);
+  const lo = -60, hi = 6, padL = 34, padB = 26, padT = 8, padR = 10;
+  const X = (d) => padL + (d - lo) / (hi - lo) * (w - padL - padR), Y = (d) => padT + (1 - (d - lo) / (hi - lo)) * (h - padT - padB);
+  const T = P.threshold, R = P.ratio, W = P.knee;
+  g.font = `10px ${t.mono}`; g.lineWidth = 1;
+  if (W > 0) { g.fillStyle = t.accent; g.globalAlpha = 0.1; g.fillRect(X(T - W / 2), padT, X(T + W / 2) - X(T - W / 2), h - padT - padB); g.globalAlpha = 1; }
+  for (let d = -60; d <= 0; d += 12) {
+    const x = Math.round(X(d)) + 0.5, y = Math.round(Y(d)) + 0.5; g.strokeStyle = t.grid;
+    g.beginPath(); g.moveTo(x, padT); g.lineTo(x, h - padB); g.stroke(); g.beginPath(); g.moveTo(padL, y); g.lineTo(w - padR, y); g.stroke();
+    g.fillStyle = t.muted; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(d === 0 ? '0' : neg(d, 0), x, h - padB + 4);
+    g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(d === 0 ? '0' : neg(d, 0), padL - 5, y);
+  }
+  g.setLineDash([3, 4]); g.strokeStyle = t.muted; g.beginPath(); g.moveTo(X(lo), Y(lo)); g.lineTo(X(hi), Y(hi)); g.stroke();
+  g.strokeStyle = t.ink; g.beginPath(); g.moveTo(X(T), padT); g.lineTo(X(T), h - padB); g.stroke(); g.setLineDash([]);
+  g.fillStyle = t.ink; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('T', X(T) + 4, padT + 2);
+  g.save(); g.beginPath(); g.rect(padL, padT, w - padL - padR, h - padT - padB); g.clip();
+  g.beginPath();
+  for (let d = lo; d <= hi; d += 0.25) { const y = Y(CompCore.curve(d, T, R, W) + P.makeup); d === lo ? g.moveTo(X(d), y) : g.lineTo(X(d), y); }
+  g.strokeStyle = t.accent; g.lineWidth = 2.2; g.stroke();
+  if (playing) trail.forEach(([x, y], i) => { g.globalAlpha = (i + 1) / trail.length; g.fillStyle = t.gr; g.beginPath(); g.arc(X(x), Y(y), i === trail.length - 1 ? 5 : 2.5, 0, Math.PI * 2); g.fill(); });
+  g.globalAlpha = 1; g.restore();
+  g.fillStyle = t.muted; g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillText('入力 dB →', w - padR, h - padB - 6);
+  g.textAlign = 'left'; g.fillText('↑ 出力 dB', padL + 6, padT + 12);
+}
+function drawMeter(t) {
+  const { w, h, g } = fit(gm, 54);
+  const MAX = 20, x0 = 8, x1 = w - 8, X = (v) => x1 - Math.min(v, MAX) / MAX * (x1 - x0), top = 6, bh = 18;
+  g.fillStyle = t.grid; g.fillRect(x0, top, x1 - x0, bh);
+  let v;
+  if (playing) { v = live.gr; const now = performance.now(); if (v >= live.hold || now - live.holdT > 1200) { live.hold = v; live.holdT = now; } }
+  else v = stats.max;
+  g.fillStyle = t.gr; g.fillRect(X(v), top, x1 - X(v), bh);
+  const mark = playing ? live.hold : stats.avg;
+  g.fillStyle = t.ink; g.fillRect(Math.round(X(mark)) - 1, top - 3, 2, bh + 6);
+  g.font = `10px ${t.mono}`; g.textAlign = 'center'; g.textBaseline = 'top';
+  [0, 1, 3, 6, 10, 15, 20].forEach((d) => { const x = Math.round(X(d)) + 0.5; g.strokeStyle = t.muted; g.beginPath(); g.moveTo(x, top + bh); g.lineTo(x, top + bh + 4); g.stroke(); g.fillStyle = t.muted; g.fillText(d === 0 ? '0' : '−' + d, x, top + bh + 6); });
+}
+let lastRo = '';
+function updateReadouts() {
+  const s = [stats.max.toFixed(1), stats.avg.toFixed(1), stats.inPk > 1e-6 ? neg(toDb(stats.inPk)) : '−∞', stats.outPk > 1e-6 ? neg(toDb(stats.outPk)) : '−∞', playing].join('|');
+  if (s === lastRo) return; lastRo = s;
+  $('#ro-max').textContent = stats.max > 0.05 ? '−' + stats.max.toFixed(1) : '0.0';
+  $('#ro-avg').textContent = stats.avg > 0.05 ? '−' + stats.avg.toFixed(1) : '0.0';
+  $('#ro-in').textContent = stats.inPk > 1e-6 ? neg(toDb(stats.inPk)) : '−∞';
+  $('#ro-out').textContent = stats.outPk > 1e-6 ? neg(toDb(stats.outPk)) : '−∞';
+}
+function frame() {
+  if (needSim) { simulate(); needSim = false; }
+  const t = tok(), r = ringNow();
+  if (r) computeStats(r);
+  drawTimeline(t, r); drawTransfer(t); drawMeter(t); updateReadouts();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- code panel ---------- */
+const CODE = `// 1サンプル分の処理（JUCE の processBlock 内ループを想定）
+// 係数は prepareToPlay / パラメーター変更時に計算しておく
+//   attackCoef  = std::exp(-1.0f / (attackMs  * 0.001f * sampleRate));
+//   releaseCoef = std::exp(-1.0f / (releaseMs * 0.001f * sampleRate));
+
+float inL = x[0][i] * inputGain, inR = x[1][i] * inputGain;
+
+// 1) 検出：ステレオリンクのピーク（FBなら前回の出力を見る）
+float sL = feedback ? lastOutL : inL;
+float sR = feedback ? lastOutR : inR;
+float level = std::max(std::abs(sL), std::abs(sR));
+float xdB   = juce::Decibels::gainToDecibels(level, -140.0f);
+
+// 2) ゲインコンピューター：静特性（ソフトニー）
+float d = xdB - threshold, ydB;
+if (2.0f * d < -knee)                      ydB = xdB;
+else if (knee > 0 && 2.0f * std::abs(d) <= knee)
+    ydB = xdB + (1.0f / ratio - 1.0f) * (d + knee * 0.5f) * (d + knee * 0.5f) / (2.0f * knee);
+else                                       ydB = threshold + d / ratio;
+float gc = xdB - ydB;                      // 必要なGR量 [dB]（正の値）
+
+// 3) バリスティクス：アタック／リリースで係数を分岐するワンポール
+float a = (gc > gs) ? attackCoef : releaseCoef;
+gs = a * gs + (1.0f - a) * gc;             // gs はメンバ変数として保持
+
+// 4) ルックアヘッド：音声だけを D サンプル遅らせる（setLatencySamples(D) で報告）
+float dL = delayL.pushAndRead(inL), dR = delayR.pushAndRead(inR);
+
+// 5) VCA：dB → 倍率にして掛け算、メイクアップとドライ／ウェット
+float g  = juce::Decibels::decibelsToGain(-gs);
+float wL = dL * g, wR = dR * g;
+lastOutL = wL; lastOutR = wR;              // FB用
+y[0][i] = mix * wL * makeupGain + (1.0f - mix) * dL;
+y[1][i] = mix * wR * makeupGain + (1.0f - mix) * dR;`;
+function renderCode() {
+  const esc = CODE.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  $('#code').innerHTML = esc.replace(/(\/\/.*)$/gm, '<span class="c">$1</span>');
+}
+
+/* ---------- wiring ---------- */
+buildControls();
+const psel = $('#preset');
+psel.innerHTML = '<option value="" disabled>プリセット</option>' + PRESETS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+psel.value = 'default';
+psel.addEventListener('change', () => { const p = PRESETS.find((x) => x[0] === psel.value); if (p) applyParams({ ...DEFAULTS, ...p[2] }); });
+$('#play').addEventListener('click', togglePlay);
+$('#src').addEventListener('change', (e) => switchSource(e.target.value));
+$('#bypass').addEventListener('click', () => { P.bypass = !P.bypass; $('#bypass').setAttribute('aria-pressed', P.bypass); $('#bypass').textContent = P.bypass ? 'バイパス中' : 'バイパス'; paramChanged(); });
+$('#file').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    status('読み込み中…'); await ensureCtx();
+    const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+    const L = buf.getChannelData(0).slice(), R = (buf.numberOfChannels > 1 ? buf.getChannelData(1) : buf.getChannelData(0)).slice();
+    sources.file = { L, R, sr: buf.sampleRate, bpm: null, name: f.name }; delete bufCache.file;
+    let opt = $('#src').querySelector('option[value="file"]');
+    if (!opt) { opt = document.createElement('option'); opt.value = 'file'; $('#src').appendChild(opt); }
+    opt.textContent = '読み込み：' + f.name; $('#src').value = 'file'; switchSource('file');
+    status('');
+  } catch (err) { status('この形式は読み込めませんでした。WAV・MP3・AAC などでお試しください。'); }
+});
+document.querySelectorAll('.flow .blk').forEach((b) => {
+  b.addEventListener('click', () => selectEx(b.dataset.k));
+  b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectEx(b.dataset.k); } });
+});
+syncControls(); renderEx(); renderCode();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
