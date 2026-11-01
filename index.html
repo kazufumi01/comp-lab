@@ -136,9 +136,6 @@ input[type=range]:disabled{cursor:not-allowed}
 .tries .btn{font-size:12px;min-height:32px;padding:5px 10px}
 
 /* code */
-pre.code{margin:0;font-family:var(--font-mono);font-size:12.5px;line-height:1.65;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:14px 16px;overflow-x:auto}
-pre.code .c{color:var(--muted)}
-.codehead p{margin:4px 0 12px;color:var(--muted);font-size:13px;max-width:72ch}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 
 /* standalone page additions */
@@ -266,14 +263,6 @@ a{color:var(--accent)}
     </aside>
   </main>
 
-  <section class="panel">
-    <div class="codehead">
-      <p class="eyebrow">Bridge to plugin</p>
-      <h2 style="font-size:15px">プラグイン化へのブリッジ：このページのDSPをC++で書くと</h2>
-      <p>上で鳴っている処理の1サンプル分を、JUCEの processBlock 内ループを想定してC++に置き換えたものです。設計は Giannoulis・Massberg・Reiss「Digital Dynamic Range Compressor Design — A Tutorial and Analysis」（JAES, 2012）のフィードフォワード型（ログ領域ゲインコンピューター＋分岐型スムージング）に基づいています。</p>
-    </div>
-    <pre class="code" id="code"></pre>
-  </section>
   <footer class="foot">
     <div class="links"><a href="https://jpk.seesaa.net/article/521843924.html" target="_blank" rel="noopener">ブログ（コンプレッサー解説記事）</a><span>制作：Kazufumi Nishida, JPK with Claude,Perplexity and Others</span></div>
     <p>このページのDSPは仕組みを学ぶための教育用実装です。特定のハードウェアやプラグインの音を再現するものではありません。</p>
@@ -834,45 +823,6 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
-/* ---------- code panel ---------- */
-const CODE = `// 1サンプル分の処理（JUCE の processBlock 内ループを想定）
-// 係数は prepareToPlay / パラメーター変更時に計算しておく
-//   attackCoef  = std::exp(-1.0f / (attackMs  * 0.001f * sampleRate));
-//   releaseCoef = std::exp(-1.0f / (releaseMs * 0.001f * sampleRate));
-
-float inL = x[0][i] * inputGain, inR = x[1][i] * inputGain;
-
-// 1) 検出：ステレオリンクのピーク（FBなら前回の出力を見る）
-float sL = feedback ? lastOutL : inL;
-float sR = feedback ? lastOutR : inR;
-float level = std::max(std::abs(sL), std::abs(sR));
-float xdB   = juce::Decibels::gainToDecibels(level, -140.0f);
-
-// 2) ゲインコンピューター：静特性（ソフトニー）
-float d = xdB - threshold, ydB;
-if (2.0f * d < -knee)                      ydB = xdB;
-else if (knee > 0 && 2.0f * std::abs(d) <= knee)
-    ydB = xdB + (1.0f / ratio - 1.0f) * (d + knee * 0.5f) * (d + knee * 0.5f) / (2.0f * knee);
-else                                       ydB = threshold + d / ratio;
-float gc = xdB - ydB;                      // 必要なGR量 [dB]（正の値）
-
-// 3) バリスティクス：アタック／リリースで係数を分岐するワンポール
-float a = (gc > gs) ? attackCoef : releaseCoef;
-gs = a * gs + (1.0f - a) * gc;             // gs はメンバ変数として保持
-
-// 4) ルックアヘッド：音声だけを D サンプル遅らせる（setLatencySamples(D) で報告）
-float dL = delayL.pushAndRead(inL), dR = delayR.pushAndRead(inR);
-
-// 5) VCA：dB → 倍率にして掛け算、メイクアップとドライ／ウェット
-float g  = juce::Decibels::decibelsToGain(-gs);
-float wL = dL * g, wR = dR * g;
-lastOutL = wL; lastOutR = wR;              // FB用
-y[0][i] = mix * wL * makeupGain + (1.0f - mix) * dL;
-y[1][i] = mix * wR * makeupGain + (1.0f - mix) * dR;`;
-function renderCode() {
-  const esc = CODE.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  $('#code').innerHTML = esc.replace(/(\/\/.*)$/gm, '<span class="c">$1</span>');
-}
 
 /* ---------- wiring ---------- */
 buildControls();
@@ -900,7 +850,7 @@ document.querySelectorAll('.flow .blk').forEach((b) => {
   b.addEventListener('click', () => selectEx(b.dataset.k));
   b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectEx(b.dataset.k); } });
 });
-syncControls(); renderEx(); renderCode();
+syncControls(); renderEx();
 requestAnimationFrame(frame);
 })();
 </script>
