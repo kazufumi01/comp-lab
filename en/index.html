@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A free learning app that lets you hear and see how a compressor’s threshold, ratio, attack, release, knee, detector and feedback topology work — with real DSP running in your browser.">
+<meta name="theme-color" content="#0d6575">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Compressor Anatomy Lab">
+<meta property="og:title" content="Compressor Anatomy Lab — understand compression by ear and by eye">
+<meta property="og:description" content="A free learning app that lets you hear and see how a compressor’s threshold, ratio, attack, release, knee, detector and feedback topology work — with real DSP running in your browser.">
+<meta property="og:url" content="https://kazufumi01.github.io/comp-lab/en/">
+<meta property="og:image" content="https://kazufumi01.github.io/comp-lab/en/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="ja" href="https://kazufumi01.github.io/comp-lab/">
+<link rel="alternate" hreflang="en" href="https://kazufumi01.github.io/comp-lab/en/">
+<link rel="alternate" hreflang="x-default" href="https://kazufumi01.github.io/comp-lab/en/">
+<link rel="canonical" href="https://kazufumi01.github.io/comp-lab/en/">
+<title>Compressor Anatomy Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: studio rack — visual instruments left (timeline, transfer curve, signal flow), control surface + explanation right, DSP code below */
+:root{
+  --bg:#e6e9ed; --panel:#f6f7f9; --ink:#16202b; --muted:#566271; --line:#c8cfd7; --grid:#dde2e8;
+  --accent:#0d6575; --on-accent:#ffffff; --gr:#c47410; --sig:#9ca7b3; --sel:#e3eef0;
+  --font-ui:"Zen Kaku Gothic New","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151a; --panel:#192027; --ink:#e2e6ea; --muted:#8c97a4; --line:#2a333d; --grid:#212932;
+  --accent:#55b7c5; --on-accent:#0a1a1d; --gr:#eda33c; --sig:#56616e; --sel:#1d2d33; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151a; --panel:#192027; --ink:#e2e6ea; --muted:#8c97a4; --line:#2a333d; --grid:#212932;
+  --accent:#55b7c5; --on-accent:#0a1a1d; --gr:#eda33c; --sig:#56616e; --sel:#1d2d33; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.7}
+.wrap{max-width:1260px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 56px;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3,h4{margin:0;text-wrap:balance}
+.mono{font-family:var(--font-mono)}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:.02em}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px;max-width:60ch}
+.transport{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn,.sel{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:7px 12px;cursor:pointer;min-height:36px}
+.btn:hover,.sel:hover{border-color:var(--muted)}
+.btn:focus-visible,.sel:focus-visible,input:focus-visible,.blk:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700;min-width:96px}
+.btn[aria-pressed="true"]{background:var(--gr);border-color:var(--gr);color:var(--on-accent)}
+.file{position:relative;overflow:hidden}
+.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.status{font-size:12px;color:var(--muted);min-height:1.2em}
+
+/* grid */
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (max-width:920px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.ph h2{font-size:15px;font-weight:700}
+.badge{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.badge.live{border-color:var(--gr);color:var(--gr)}
+canvas{display:block;width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:620px){.row2{grid-template-columns:minmax(0,1fr)}}
+.ro{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-top:12px}
+.ro div{display:flex;flex-direction:column}
+.ro dt{font-size:11px;color:var(--muted)}
+.ro dd{margin:0;font-family:var(--font-mono);font-size:18px;font-variant-numeric:tabular-nums}
+.ro .grv{color:var(--gr)}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+
+/* signal flow */
+.flow-scroll{overflow-x:auto}
+.flow{min-width:540px;width:100%;height:auto;display:block}
+.flow .box{fill:var(--bg);stroke:var(--line);stroke-width:1.2}
+.flow .blk{cursor:pointer}
+.flow .blk:hover .box{stroke:var(--muted)}
+.flow .blk.on .box{stroke:var(--accent);stroke-width:2;fill:var(--sel)}
+.flow text{fill:var(--ink);font-family:var(--font-ui);font-size:12px;text-anchor:middle}
+.flow text.sub{fill:var(--muted);font-family:var(--font-mono);font-size:10px}
+.flow text.lab{fill:var(--muted);font-family:var(--font-mono);font-size:10px;text-anchor:start}
+.flow .wire{fill:none;stroke:var(--muted);stroke-width:1.4}
+.flow .wire.sc{stroke:var(--gr)}
+.flow .dot{fill:var(--muted)}
+.flow .ah{fill:var(--muted)}
+.flow .ah2{fill:var(--gr)}
+.flow[data-topo="ff"] .fb{display:none}
+.flow[data-topo="fb"] .ff{display:none}
+
+/* controls */
+.groups{display:flex;flex-direction:column;gap:14px}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+legend{padding:0;margin-bottom:4px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+legend b{font-size:13px}
+.ctl{display:grid;grid-template-columns:1fr auto;align-items:baseline;column-gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer}
+.ctl:hover{background:var(--bg)}
+.ctl.on{background:var(--sel)}
+.ctl label{cursor:pointer;display:flex;gap:8px;align-items:baseline}
+.ctl .jp{font-weight:500}
+.ctl.on .jp{color:var(--accent)}
+.ctl .en{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.ctl output{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+.ctl input[type=range]{grid-column:1/-1}
+.ctl.dim{opacity:.45}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;grid-column:1/-1;margin-top:4px;width:max-content;max-width:100%}
+.seg button{font:inherit;font-size:12px;background:transparent;color:var(--ink);border:0;padding:5px 12px;cursor:pointer;min-height:30px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);margin-top:-5.5px;border:2px solid var(--panel)}
+input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);border:2px solid var(--panel)}
+input[type=range]:disabled{cursor:not-allowed}
+
+/* explanation */
+.ex h3{font-size:20px;font-weight:700;margin-top:2px}
+.ex .what{font-size:15px;font-weight:500;margin:6px 0 10px}
+.ex p{margin:0 0 10px;max-width:64ch}
+.ex h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:14px 0 6px}
+.ex ul{margin:0;padding-left:1.2em}
+.ex li{margin:2px 0}
+.formula{font-family:var(--font-mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;white-space:pre-wrap;line-height:1.8;overflow-x:auto}
+.calc{font-family:var(--font-mono);font-size:12px;color:var(--accent);margin-top:8px}
+.tries{display:flex;flex-wrap:wrap;gap:6px}
+.tries .btn{font-size:12px;min-height:32px;padding:5px 10px}
+
+/* code */
+pre.code{margin:0;font-family:var(--font-mono);font-size:12.5px;line-height:1.65;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:14px 16px;overflow-x:auto}
+pre.code .c{color:var(--muted)}
+.codehead p{margin:4px 0 12px;color:var(--muted);font-size:13px;max-width:72ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+/* standalone page additions */
+html{-webkit-text-size-adjust:100%}
+body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+a{color:var(--accent)}
+.blog{display:inline-block;margin-top:6px;font-size:13px;font-weight:700;text-decoration:none}
+.blog:hover{text-decoration:underline}
+.ios{font-size:12px;color:var(--muted);margin:0}
+.foot{border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+.foot p{margin:0;max-width:80ch}
+.foot .links{display:flex;flex-wrap:wrap;gap:6px 18px}
+.lang{display:inline-block;margin:6px 0 0 14px;padding:1px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:700;text-decoration:none;color:var(--ink)}.lang:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <p class="eyebrow">Dynamics Processor / Feed-forward · Feedback</p>
+      <h1>Compressor Anatomy Lab</h1>
+      <p>Take apart a real compressor DSP running in your browser and watch what each parameter does. Headphones recommended.</p>
+      <a class="blog" id="blog-link" href="https://jpk.seesaa.net/article/521843924.html" target="_blank" rel="noopener">Read the article (Japanese) →</a>
+      <a class="lang" href="../" hreflang="ja" lang="ja">日本語</a>
+    </div>
+    <div class="transport">
+      <button class="btn primary" id="play" type="button">▶ Play</button>
+      <select class="sel" id="src" aria-label="Source">
+        <option value="loop">Drums + bass + pad (92 BPM)</option>
+        <option value="snare">Single snare hits (80 BPM, for watching attack)</option>
+      </select>
+      <label class="btn file">Load an audio file<input type="file" id="file" accept="audio/*"></label>
+      <select class="sel" id="preset" aria-label="Preset"></select>
+      <button class="btn" id="bypass" type="button" aria-pressed="false">Bypass</button>
+    </div>
+  </header>
+  <div class="status" id="status" role="status"></div>
+  <p class="ios">No sound? On iPhone / iPad, turn off silent mode, raise the volume, then press Play.</p>
+
+  <main class="grid">
+    <div class="col">
+      <section class="panel">
+        <div class="ph"><h2>Level and gain reduction over time</h2><span class="badge" id="mode">Preview (offline render)</span></div>
+        <canvas id="tl" aria-label="Timeline of input level, output level and gain reduction"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--sig)"></i>Input peak</span>
+          <span><i style="background:var(--accent)"></i>Output peak</span>
+          <span><i style="background:var(--gr)"></i>Gain reduction</span>
+          <span><i style="background:transparent;border-top:2px dashed var(--ink);height:0;border-radius:0"></i>Threshold</span>
+        </div>
+        <p class="note" id="tlnote">While stopped, the first 3 seconds are rendered offline through the same DSP. Move any parameter and it re-renders instantly.</p>
+      </section>
+
+      <div class="row2">
+        <section class="panel">
+          <div class="ph"><h2>Transfer curve (static)</h2></div>
+          <canvas id="tc" aria-label="Transfer curve showing output level against input level"></canvas>
+          <p class="note">The line is the static curve; the dot is the actual operating point during playback. Attack, release and the detector make the dot drift off the line.</p>
+        </section>
+        <section class="panel">
+          <div class="ph"><h2>Meters</h2><span class="badge mono" id="lat">Latency 0.0 ms</span></div>
+          <canvas id="gm" aria-label="Gain reduction meter"></canvas>
+          <dl class="ro">
+            <div><dt id="gr-label">Max GR (3 s)</dt><dd class="grv" id="ro-max">0.0</dd></div>
+            <div><dt>Avg GR (3 s)</dt><dd id="ro-avg">0.0</dd></div>
+            <div><dt>Input peak dBFS</dt><dd id="ro-in">−∞</dd></div>
+            <div><dt>Output peak dBFS</dt><dd id="ro-out">−∞</dd></div>
+          </dl>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="ph"><h2>Signal flow</h2><span class="eyebrow">Click a block for details</span></div>
+        <div class="flow-scroll">
+        <svg class="flow" id="flow" viewBox="0 0 620 226" data-topo="ff" role="img" aria-label="Compressor signal flow diagram">
+          <defs>
+            <marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0 L8 4 L0 8 z"/></marker>
+            <marker id="ah2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="ah2" d="M0 0 L8 4 L0 8 z"/></marker>
+          </defs>
+          <text class="lab" x="4" y="52">IN</text>
+          <path class="wire" d="M22 48 H40" marker-end="url(#ah)"/>
+          <g class="blk" data-k="input" tabindex="0" role="button" aria-label="Input gain"><rect class="box" x="40" y="30" width="84" height="36" rx="4"/><text x="82" y="52">Input gain</text></g>
+          <path class="wire" d="M124 48 H160" marker-end="url(#ah)"/>
+          <circle class="dot ff" cx="140" cy="48" r="3"/>
+          <g class="blk" data-k="lookahead" tabindex="0" role="button" aria-label="Lookahead"><rect class="box" x="160" y="30" width="92" height="36" rx="4"/><text x="206" y="52">Lookahead</text></g>
+          <path class="wire" d="M252 48 H282" marker-end="url(#ah)"/>
+          <circle class="dot" cx="266" cy="48" r="3"/>
+          <path class="wire" d="M266 48 V14 H495 V30" marker-end="url(#ah)"/>
+          <text class="lab" x="380" y="27">Dry (unprocessed)</text>
+          <g class="blk" data-k="vca" tabindex="0" role="button" aria-label="Gain element VCA"><circle class="box" cx="300" cy="48" r="18"/><text x="300" y="53" style="font-size:16px">×</text></g>
+          <path class="wire" d="M318 48 H344" marker-end="url(#ah)"/>
+          <circle class="dot fb" cx="330" cy="48" r="3"/>
+          <g class="blk" data-k="makeup" tabindex="0" role="button" aria-label="Makeup"><rect class="box" x="344" y="30" width="88" height="36" rx="4"/><text x="388" y="52">Makeup</text></g>
+          <path class="wire" d="M432 48 H462" marker-end="url(#ah)"/>
+          <g class="blk" data-k="mix" tabindex="0" role="button" aria-label="Mix"><rect class="box" x="462" y="30" width="66" height="36" rx="4"/><text x="495" y="52">Mix</text></g>
+          <path class="wire" d="M528 48 H580" marker-end="url(#ah)"/>
+          <text class="lab" x="584" y="52">OUT</text>
+
+          <path class="wire sc ff" d="M140 48 V148" marker-end="url(#ah2)"/>
+          <path class="wire sc fb" d="M330 48 V128 H60 V168 H90" marker-end="url(#ah2)"/>
+          <text class="lab ff" x="146" y="110">FF: detect the input</text>
+          <text class="lab fb" x="66" y="122">FB: detect the output</text>
+          <g class="blk" data-k="detector" tabindex="0" role="button" aria-label="Detector"><rect class="box" x="90" y="148" width="110" height="40" rx="4"/><text x="145" y="165">Detector</text><text class="sub" x="145" y="181">Peak / RMS</text></g>
+          <path class="wire sc" d="M200 168 H222" marker-end="url(#ah2)"/>
+          <g class="blk" data-k="threshold" tabindex="0" role="button" aria-label="Gain computer"><rect class="box" x="222" y="148" width="124" height="40" rx="4"/><text x="284" y="165">Gain computer</text><text class="sub" x="284" y="181">T · R · Knee</text></g>
+          <path class="wire sc" d="M346 168 H370" marker-end="url(#ah2)"/>
+          <g class="blk" data-k="attack" tabindex="0" role="button" aria-label="Ballistics"><rect class="box" x="370" y="148" width="110" height="40" rx="4"/><text x="425" y="165">Ballistics</text><text class="sub" x="425" y="181">Attack · Release</text></g>
+          <path class="wire sc" d="M425 148 V100 H300 V66" marker-end="url(#ah2)"/>
+          <text class="lab" x="432" y="128">g (dB → linear)</text>
+          <text class="lab" x="90" y="214">Sidechain: no audio passes here — it only calculates “how much to turn down”</text>
+        </svg>
+        </div>
+      </section>
+    </div>
+
+    <aside class="col">
+      <section class="panel">
+        <div class="ph"><h2>Parameters</h2><span class="eyebrow">Click a row for details</span></div>
+        <div class="groups" id="groups"></div>
+      </section>
+      <section class="panel ex" id="ex" aria-live="polite"></section>
+    </aside>
+  </main>
+
+  <section class="panel">
+    <div class="codehead">
+      <p class="eyebrow">Bridge to plugin</p>
+      <h2 style="font-size:15px">Bridge to a plugin: this page’s DSP written in C++</h2>
+      <p>One sample of the processing you hear above, rewritten in C++ as it would sit inside a JUCE processBlock loop. The design follows the feed-forward architecture (log-domain gain computer + branching smoother) from Giannoulis, Massberg and Reiss, “Digital Dynamic Range Compressor Design — A Tutorial and Analysis” (JAES, 2012).</p>
+    </div>
+    <pre class="code" id="code"></pre>
+  </section>
+  <footer class="foot">
+    <div class="links"><a href="https://jpk.seesaa.net/article/521843924.html" target="_blank" rel="noopener">Blog: compressor learning map (Japanese)</a><span>Made by Kazufumi Nishida (JPK) with Claude, Perplexity and others</span></div>
+    <p>The DSP on this page is an educational implementation for learning how compressors work. It does not reproduce the sound of any specific hardware or plugin.</p>
+    <p>Product and model names on this page (1176, LA-2A, Fairchild, FabFilter Pro-C and others) are trademarks or registered trademarks of their respective owners. They are mentioned for explanation only; this page is not affiliated with them.</p>
+    <p>Reference: D. Giannoulis, M. Massberg, J. D. Reiss, "Digital Dynamic Range Compressor Design — A Tutorial and Analysis," J. Audio Eng. Soc., vol. 60, no. 6, 2012.</p>
+  </footer>
+</div>
+
+<script type="text/plain" id="worklet-wrapper">
+class CompLabProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.c = new CompCore(sampleRate);
+    this.m = new Float32Array(4);
+    this.out = new Float32Array(16);
+    this.k = 0;
+    this.scratch = new Float32Array(128);
+    this.port.onmessage = (e) => this.c.set(e.data);
+  }
+  process(inputs, outputs) {
+    const i = inputs[0], o = outputs[0];
+    if (!i || i.length === 0 || !o || o.length === 0) return true;
+    const n = o[0].length;
+    if (this.scratch.length < n) this.scratch = new Float32Array(n);
+    this.c.run(i[0], i[1] || i[0], o[0], o[1] || this.scratch, n, this.m);
+    this.out.set(this.m, this.k * 4);
+    if (++this.k === 4) { this.port.postMessage(this.out.slice(0)); this.k = 0; }
+    return true;
+  }
+}
+registerProcessor('comp-lab', CompLabProcessor);
+</script>
+
+<script id="comp-core">
+/* ===== DSP core: shared by the AudioWorklet (live) and the offline preview ===== */
+class CompCore {
+  constructor(fs) {
+    this.fs = fs;
+    this.p = { input: 0, threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4,
+               detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 1, bypass: false };
+    this.ms = 0; this.gs = 0; this.fbL = 0; this.fbR = 0;
+    this.size = Math.ceil(fs * 0.012) + 2;
+    this.dL = new Float32Array(this.size); this.dR = new Float32Array(this.size); this.w = 0;
+    this.set({});
+  }
+  set(o) {
+    Object.assign(this.p, o);
+    const p = this.p, fs = this.fs;
+    const tc = (ms) => Math.exp(-1 / (Math.max(ms, 0.001) * 0.001 * fs));
+    this.aA = tc(p.attack); this.aR = tc(p.release); this.aM = tc(p.rms);
+    this.la = Math.min(this.size - 1, Math.round(p.lookahead * 0.001 * fs));
+    this.gIn = Math.pow(10, p.input / 20); this.gMk = Math.pow(10, p.makeup / 20);
+  }
+  static curve(x, T, R, W) {
+    const d = x - T;
+    if (2 * d < -W) return x;
+    if (W > 0 && 2 * Math.abs(d) <= W) return x + (1 / R - 1) * (d + W / 2) * (d + W / 2) / (2 * W);
+    return T + d / R;
+  }
+  run(iL, iR, oL, oR, n, m) {
+    const p = this.p, T = p.threshold, R = p.ratio, W = p.knee;
+    const rms = p.detector === 'rms', fb = p.topology === 'fb', mix = p.mix, byp = p.bypass;
+    let inPk = 0, outPk = 0, grMax = 0, lvlMax = -150;
+    for (let i = 0; i < n; i++) {
+      const xl = iL[i] * this.gIn, xr = iR[i] * this.gIn;
+      const sl = fb ? this.fbL : xl, sr = fb ? this.fbR : xr;
+      let lvl;
+      if (rms) { const e = Math.max(sl * sl, sr * sr); this.ms = this.aM * this.ms + (1 - this.aM) * e; lvl = Math.sqrt(this.ms); }
+      else lvl = Math.max(Math.abs(sl), Math.abs(sr));
+      const xdB = lvl > 1e-7 ? 20 * Math.log10(lvl) : -140;
+      const gc = xdB - CompCore.curve(xdB, T, R, W);
+      const a = gc > this.gs ? this.aA : this.aR;
+      this.gs = a * this.gs + (1 - a) * gc;
+      this.dL[this.w] = xl; this.dR[this.w] = xr;
+      let r = this.w - this.la; if (r < 0) r += this.size;
+      const dl = this.dL[r], dr = this.dR[r];
+      if (++this.w >= this.size) this.w = 0;
+      const g = Math.pow(10, -this.gs / 20);
+      const wl = dl * g, wr = dr * g;
+      this.fbL = wl; this.fbR = wr;
+      let yl, yr;
+      if (byp) { yl = dl; yr = dr; }
+      else { const k = mix * this.gMk; yl = wl * k + dl * (1 - mix); yr = wr * k + dr * (1 - mix); }
+      oL[i] = yl; oR[i] = yr;
+      const ai = Math.max(Math.abs(xl), Math.abs(xr)); if (ai > inPk) inPk = ai;
+      const ao = Math.max(Math.abs(yl), Math.abs(yr)); if (ao > outPk) outPk = ao;
+      if (this.gs > grMax) grMax = this.gs;
+      if (xdB > lvlMax) lvlMax = xdB;
+    }
+    m[0] = inPk; m[1] = outPk; m[2] = grMax; m[3] = lvlMax;
+  }
+}
+</script>
+
+<script>
+(() => {
+const $ = (s) => document.querySelector(s);
+const SRC_SR = 48000, SIM_SEC = 3, BLOCK = 128;
+const neg = (v, d = 1) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+const sgn = (v, d = 1) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d);
+const toDb = (v) => (v > 1e-6 ? 20 * Math.log10(v) : -120);
+
+/* ---------- parameters ---------- */
+const DEFAULTS = { input: 0, threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4,
+  detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 100 };
+const P = { ...DEFAULTS, bypass: false };
+
+const fmtMs = (v) => v < 1 ? Math.round(v * 1000) + ' µs' : v < 10 ? v.toFixed(1) + ' ms' : Math.round(v) + ' ms';
+const CTRL = {
+  input:     { jp: 'Input gain', en: 'Input', min: -12, max: 12, step: 0.5, fmt: (v) => sgn(v) + ' dB' },
+  threshold: { jp: 'Threshold', en: 'Threshold', min: -60, max: 0, step: 0.5, fmt: (v) => neg(v) + ' dB' },
+  ratio:     { jp: 'Ratio', en: 'Ratio', min: 1, max: 20, log: true, fmt: (v) => (v < 10 ? v.toFixed(1) : Math.round(v)) + ' : 1' },
+  knee:      { jp: 'Knee', en: 'Knee', min: 0, max: 24, step: 0.5, fmt: (v) => v.toFixed(1) + ' dB' },
+  attack:    { jp: 'Attack', en: 'Attack', min: 0.05, max: 200, log: true, fmt: fmtMs },
+  release:   { jp: 'Release', en: 'Release', min: 10, max: 2000, log: true, fmt: fmtMs },
+  rms:       { jp: 'RMS window', en: 'RMS window', min: 1, max: 300, log: true, fmt: fmtMs },
+  lookahead: { jp: 'Lookahead', en: 'Lookahead', min: 0, max: 10, step: 0.1, fmt: (v) => v.toFixed(1) + ' ms' },
+  makeup:    { jp: 'Makeup', en: 'Makeup', min: 0, max: 24, step: 0.5, fmt: (v) => sgn(v) + ' dB' },
+  mix:       { jp: 'Mix', en: 'Dry / Wet', min: 0, max: 100, step: 1, fmt: (v) => Math.round(v) + ' %' },
+};
+const SEGS = {
+  detector: { jp: 'Detector', en: 'Detector', opts: [['peak', 'Peak'], ['rms', 'RMS']] },
+  topology: { jp: 'Topology', en: 'Topology', opts: [['ff', 'Feed-forward'], ['fb', 'Feedback']] },
+};
+const GROUPS = [
+  { en: 'Input', jp: 'Gain staging', keys: ['input'] },
+  { en: 'Gain computer', jp: 'How much to compress', keys: ['threshold', 'ratio', 'knee'] },
+  { en: 'Ballistics', jp: 'How fast to react', keys: ['attack', 'release'] },
+  { en: 'Sidechain', jp: 'What it listens to', keys: ['detector', 'rms', 'topology', 'lookahead'] },
+  { en: 'Output', jp: 'Level and blend', keys: ['makeup', 'mix'] },
+];
+const PRESETS = [
+  ['default', 'Default', {}],
+  ['vocal', 'Vocal (opto-style: FB + RMS)', { threshold: -24, ratio: 3, knee: 12, attack: 10, release: 300, makeup: 5, detector: 'rms', rms: 30, topology: 'fb' }],
+  ['drumbus', 'Drum bus (let the attack through)', { threshold: -20, ratio: 4, knee: 3, attack: 30, release: 80, makeup: 4 }],
+  ['fast', 'Fast attack (squash the peaks)', { threshold: -22, ratio: 8, knee: 0, attack: 0.2, release: 60, makeup: 7 }],
+  ['glue', 'Mix bus (glue)', { threshold: -14, ratio: 2, knee: 6, attack: 30, release: 326, makeup: 1.5, detector: 'rms', rms: 10 }],
+  ['limit', 'Limiter (lookahead)', { threshold: -8, ratio: 20, knee: 0, attack: 0.5, release: 50, makeup: 6, lookahead: 5 }],
+  ['ny', 'NY parallel', { threshold: -36, ratio: 10, knee: 0, attack: 1, release: 60, makeup: 10, mix: 35 }],
+];
+
+/* ---------- test signals ---------- */
+function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 * 2 - 1; }; }
+function makeKick(sr, rnd) {
+  const n = Math.round(0.45 * sr), b = new Float32Array(n); let ph = 0;
+  for (let i = 0; i < n; i++) { const t = i / sr; const f = 48 + 120 * Math.exp(-t * 28); ph += 2 * Math.PI * f / sr;
+    let v = Math.sin(ph) * Math.exp(-t * 6.5); if (t < 0.004) v += rnd() * 0.35 * (1 - t / 0.004); b[i] = v; }
+  return b;
+}
+function makeSnare(sr, rnd) {
+  const n = Math.round(0.3 * sr), b = new Float32Array(n); let hp = 0, xp = 0;
+  for (let i = 0; i < n; i++) { const t = i / sr, x = rnd(); hp = 0.82 * (hp + x - xp); xp = x;
+    b[i] = hp * Math.exp(-t * 15) * 0.55 + Math.sin(2 * Math.PI * 185 * t) * Math.exp(-t * 24) * 0.5 + Math.sin(2 * Math.PI * 330 * t) * Math.exp(-t * 32) * 0.2; }
+  return b;
+}
+function makeHat(sr, rnd) {
+  const n = Math.round(0.07 * sr), b = new Float32Array(n); let xp = 0;
+  for (let i = 0; i < n; i++) { const t = i / sr, x = rnd(); b[i] = (x - xp) * Math.exp(-t * 65) * 0.18; xp = x; }
+  return b;
+}
+function normalize(L, R, peak) {
+  let pk = 0; for (let i = 0; i < L.length; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
+  const g = peak / (pk || 1); for (let i = 0; i < L.length; i++) { L[i] *= g; R[i] *= g; }
+}
+function genLoop(sr) {
+  const bpm = 92, step = 60 / bpm / 4, len = Math.round(32 * step * sr);
+  const L = new Float32Array(len), R = new Float32Array(len), rnd = rng(7);
+  const at = (s) => Math.round(s * step * sr);
+  const put = (b, start, gl, gr) => { for (let i = 0; i < b.length; i++) { const j = (start + i) % len; L[j] += b[i] * gl; R[j] += b[i] * gr; } };
+  const kick = makeKick(sr, rnd), snare = makeSnare(sr, rnd), hat = makeHat(sr, rnd);
+  const kicks = [0, 7, 10, 16, 23, 26];
+  kicks.forEach((s) => put(kick, at(s), 0.85, 0.85));
+  [4, 12, 20, 28].forEach((s) => put(snare, at(s), 0.6, 0.66));
+  for (let s = 0; s < 32; s += 2) { const v = s % 4 === 0 ? 1 : 0.6; put(hat, at(s), v * 0.7, v); }
+  [15, 31].forEach((s) => put(hat, at(s), 0.3, 0.4));
+  const roots = [55, 43.65];
+  kicks.forEach((s, idx) => {
+    const next = idx + 1 < kicks.length ? kicks[idx + 1] : 32;
+    const dur = Math.min((next - s) * step, 0.9) - 0.02, n = Math.round(dur * sr), f = roots[s < 16 ? 0 : 1];
+    const b = new Float32Array(n); let ph = 0;
+    for (let i = 0; i < n; i++) { const t = i / sr; ph += 2 * Math.PI * f / sr;
+      const env = Math.min(1, t / 0.005) * (0.75 + 0.25 * Math.exp(-t * 8)) * Math.min(1, (n - i) / (0.02 * sr));
+      b[i] = (Math.sin(ph) + 0.35 * Math.sin(2 * ph) + 0.12 * Math.sin(3 * ph)) * env; }
+    put(b, at(s), 0.32, 0.32);
+  });
+  const chords = [[220, 261.63, 329.63], [174.61, 220, 261.63]];
+  const a = 1 - Math.exp(-2 * Math.PI * 900 / sr);
+  chords.forEach((ch, bar) => {
+    const start = at(bar * 16), n = at(16);
+    ch.forEach((f, vi) => [-1, 1].forEach((det) => {
+      const fr = f * Math.pow(2, det * 4 / 1200); let ph = vi * 0.31 + (det > 0 ? 0.5 : 0), lp = 0;
+      const gl = det < 0 ? 0.8 : 0.45, gr = det < 0 ? 0.45 : 0.8;
+      for (let i = 0; i < n; i++) { ph += fr / sr; if (ph >= 1) ph -= 1; lp += a * ((2 * ph - 1) - lp);
+        const t = i / sr, env = Math.min(1, t / 0.08) * Math.min(1, (n - i) / (0.015 * sr)), v = lp * env * 0.05;
+        const j = (start + i) % len; L[j] += v * gl; R[j] += v * gr; }
+    }));
+  });
+  normalize(L, R, 0.79);
+  return { L, R, sr, bpm, name: 'Drums + bass + pad' };
+}
+function genSnare(sr) {
+  const bpm = 80, beat = 60 / bpm, len = Math.round(4 * beat * sr);
+  const L = new Float32Array(len), R = new Float32Array(len), rnd = rng(11);
+  const sn = makeSnare(sr, rnd);
+  for (let k = 0; k < 4; k++) { const st = Math.round(k * beat * sr); for (let i = 0; i < sn.length && st + i < len; i++) { L[st + i] += sn[i]; R[st + i] += sn[i]; } }
+  normalize(L, R, 0.79);
+  return { L, R, sr, bpm, name: 'Single snare hits' };
+}
+const sources = {};
+let curKey = 'loop';
+function getSource(k) {
+  if (!sources[k]) { if (k === 'loop') sources[k] = genLoop(SRC_SR); else if (k === 'snare') sources[k] = genSnare(SRC_SR); }
+  return sources[k];
+}
+
+/* ---------- rings & offline preview ---------- */
+function makeRing(sr) { const n = Math.floor(SIM_SEC * sr / BLOCK); return { n, inp: new Float32Array(n), out: new Float32Array(n), gr: new Float32Array(n), w: 0 }; }
+function push(r, a, b, c) { r.inp[r.w] = a; r.out[r.w] = b; r.gr[r.w] = c; r.w = (r.w + 1) % r.n; }
+const coreParams = () => ({ ...P, mix: P.mix / 100 });
+let simRing = null, needSim = true;
+function simulate() {
+  const s = getSource(curKey), core = new CompCore(s.sr); core.set(coreParams());
+  const ring = makeRing(s.sr), len = s.L.length;
+  const bl = new Float32Array(BLOCK), br = new Float32Array(BLOCK), oL = new Float32Array(BLOCK), oR = new Float32Array(BLOCK), m = new Float32Array(4);
+  for (let b = 0; b < ring.n; b++) {
+    for (let i = 0; i < BLOCK; i++) { const j = (b * BLOCK + i) % len; bl[i] = s.L[j]; br[i] = s.R[j]; }
+    core.run(bl, br, oL, oR, BLOCK, m); push(ring, m[0], m[1], m[2]);
+  }
+  ring.w = 0; simRing = ring;
+}
+
+/* ---------- audio ---------- */
+let ctx = null, node = null, srcNode = null, playing = false, liveRing = null;
+const live = { gr: 0, hold: 0, holdT: 0 }; let trail = [];
+const status = (t) => { $('#status').textContent = t || ''; };
+async function ensureCtx() {
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const code = CompCore.toString() + '\n' + $('#worklet-wrapper').textContent;
+  try {
+    const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+    await ctx.audioWorklet.addModule(url);
+  } catch (e) {
+    await ctx.audioWorklet.addModule('../comp-worklet.js');
+  }
+  node = new AudioWorkletNode(ctx, 'comp-lab', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+  node.port.onmessage = onMeter;
+  const out = ctx.createGain(); out.gain.value = 0.9;
+  node.connect(out).connect(ctx.destination);
+  liveRing = makeRing(ctx.sampleRate);
+  sendParams();
+}
+const bufCache = {};
+function audioBuffer(k) {
+  if (bufCache[k]) return bufCache[k];
+  const s = getSource(k), b = ctx.createBuffer(2, s.L.length, s.sr);
+  b.copyToChannel(s.L, 0); b.copyToChannel(s.R, 1);
+  return (bufCache[k] = b);
+}
+function startSource() {
+  srcNode = ctx.createBufferSource(); srcNode.buffer = audioBuffer(curKey); srcNode.loop = true;
+  srcNode.connect(node); srcNode.start();
+}
+function stopSource() { if (srcNode) { try { srcNode.stop(); } catch (e) {} srcNode.disconnect(); srcNode = null; } }
+async function togglePlay() {
+  try {
+    if (playing) { stopSource(); playing = false; needSim = true; trail = []; }
+    else { await ensureCtx(); await ctx.resume(); liveRing = makeRing(ctx.sampleRate); startSource(); playing = true; }
+    status('');
+  } catch (e) { status('Could not start audio (' + e.message + '). Please reload the page and try again.'); playing = false; }
+  $('#play').textContent = playing ? '■ Stop' : '▶ Play';
+  $('#mode').textContent = playing ? 'Live' : 'Preview (offline render)';
+  $('#mode').classList.toggle('live', playing);
+  $('#tlnote').textContent = playing
+    ? 'Processing the playing audio in real time. The right edge is now.'
+    : 'While stopped, the first 3 seconds are rendered offline through the same DSP. Move any parameter and it re-renders instantly.';
+}
+function onMeter(e) {
+  const a = e.data;
+  for (let k = 0; k < 4; k++) { const o = k * 4; push(liveRing, a[o], a[o + 1], a[o + 2]);
+    const x = P.topology === 'fb' ? toDb(a[o]) : a[o + 3];
+    if (x > -70) trail.push([x, x - a[o + 2] + P.makeup]); }
+  if (trail.length > 28) trail = trail.slice(-28);
+  live.gr = a[14];
+}
+function sendParams() { if (node) node.port.postMessage(coreParams()); }
+
+/* ---------- controls ---------- */
+const toSlider = (c, v) => c.log ? Math.round(1000 * Math.log(v / c.min) / Math.log(c.max / c.min)) : v;
+const fromSlider = (c, s) => c.log ? c.min * Math.pow(c.max / c.min, s / 1000) : +s;
+function buildControls() {
+  const root = $('#groups');
+  GROUPS.forEach((gr) => {
+    const fs = document.createElement('fieldset');
+    fs.innerHTML = `<legend><span class="eyebrow">${gr.en}</span><b>${gr.jp}</b></legend>`;
+    gr.keys.forEach((k) => {
+      const row = document.createElement('div'); row.className = 'ctl'; row.dataset.k = k;
+      if (CTRL[k]) {
+        const c = CTRL[k];
+        row.innerHTML = `<label for="c-${k}"><span class="jp">${c.jp}</span></label><output id="v-${k}" for="c-${k}"></output>
+          <input type="range" id="c-${k}" min="${c.log ? 0 : c.min}" max="${c.log ? 1000 : c.max}" step="${c.log ? 1 : c.step}">`;
+        row.querySelector('input').addEventListener('input', (e) => { P[k] = fromSlider(c, e.target.value); paramChanged(k); });
+      } else {
+        const s = SEGS[k];
+        row.innerHTML = `<label><span class="jp">${s.jp}</span></label><span></span>
+          <div class="seg" role="group" aria-label="${s.jp}">${s.opts.map(([v, t]) => `<button type="button" id="s-${k}-${v}" data-v="${v}">${t}</button>`).join('')}</div>`;
+        row.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { P[k] = b.dataset.v; paramChanged(k); }));
+      }
+      row.addEventListener('pointerdown', () => selectEx(k));
+      row.addEventListener('focusin', () => selectEx(k));
+      fs.appendChild(row);
+    });
+    root.appendChild(fs);
+  });
+}
+function syncControls() {
+  Object.keys(CTRL).forEach((k) => {
+    const c = CTRL[k], el = $('#c-' + k);
+    if (document.activeElement !== el) el.value = toSlider(c, P[k]);
+    $('#v-' + k).textContent = c.fmt(P[k]);
+  });
+  Object.keys(SEGS).forEach((k) => SEGS[k].opts.forEach(([v]) => $(`#s-${k}-${v}`).setAttribute('aria-pressed', P[k] === v)));
+  const rmsOn = P.detector === 'rms';
+  $('#c-rms').disabled = !rmsOn; document.querySelector('.ctl[data-k="rms"]').classList.toggle('dim', !rmsOn);
+  $('#flow').dataset.topo = P.topology;
+  $('#lat').textContent = `Latency ${P.lookahead.toFixed(1)} ms`;
+}
+function paramChanged(k) {
+  syncControls(); sendParams(); needSim = true;
+  if (k && exKey && (k === exKey || DYN.has(exKey))) renderEx();
+}
+function applyParams(o) {
+  const bpm = getSource(curKey).bpm || 120;
+  Object.entries(o).forEach(([k, v]) => {
+    if (v === 'eighth') v = Math.round(30000 / bpm);
+    if (v === 'auto') v = Math.max(0, Math.round(stats.avg * 2) / 2);
+    P[k] = v;
+  });
+  paramChanged('_'); renderEx();
+}
+
+/* ---------- explanations ---------- */
+const sub = (s) => `<sub>${s}</sub>`;
+const EX = {
+  input: { jp: 'Input gain', en: 'Input gain', what: 'The level going into the compressor.',
+    body: ['In a digital compressor this does almost the same job as lowering the threshold. On fixed-threshold units such as the 1176 or LA-2A, turning up the input is exactly how you “add more compression”.',
+           'Raising the input also raises the output, so pull it back with makeup gain before comparing. In analog emulations the input level also sets how much saturation you get, but the DSP on this page is clean and adds no distortion.'],
+    typ: ['Fixed-threshold designs (1176, LA-2A style): input sets the amount, output sets the level', 'Threshold designs (FabFilter Pro-C 3 etc.): threshold sets the amount'],
+    f: `x' = x · 10${'<sup>Input/20</sup>'}`,
+    tries: [['Push in +8 dB', { input: 8 }], ['Back to 0 dB', { input: 0 }]] },
+  threshold: { jp: 'Threshold', en: 'Threshold', what: 'The line where compression starts. Gain is reduced only by the amount the detected level goes over it.',
+    body: ['Threshold decides where compression starts; ratio decides how much. The lower it goes, the quieter the sounds that get compressed, and the deeper and more frequent the GR (gain reduction).',
+           'What shapes the sound is not the number itself but how many dB of GR you get and when it moves. Set it while watching the GR lane on the timeline and the peaks crossing the dotted threshold line.'],
+    typ: ['Vocals: where peaks give 3–6 dB of GR', 'Drum bus: 2–4 dB on kick and snare hits', 'Mix bus: 1–2 dB (the needle just moves)'],
+    f: `x${sub('dB')} &gt; T:\ny${sub('dB')} = T + (x${sub('dB')} − T) / R`,
+    tries: [['T = −10 dB (peaks only)', { threshold: -10 }], ['T = −30 dB (always compressing)', { threshold: -30 }]] },
+  ratio: { jp: 'Ratio', en: 'Ratio', what: 'How much the signal above the threshold is scaled down.',
+    body: ['At 4:1, an input 8 dB over the threshold comes out only 2 dB over (GR = 6 dB). The higher the ratio, the flatter the overshoot; at ∞:1 (20:1 and up in practice) it behaves as a limiter.',
+           'Low ratio + low threshold gently evens out everything; high ratio + high threshold only hits the peaks. The same amount of GR can have a completely different character, so check the bend of the transfer curve.'],
+    typ: ['Mix bus: 1.5–2:1', 'Vocals: 2–4:1', 'Drums, bass: 4–8:1', 'Limiting: 10:1–∞'],
+    f: `GR = (x${sub('dB')} − T) · (1 − 1/R)`,
+    tries: [['1.5 : 1', { ratio: 1.5 }], ['20 : 1', { ratio: 20 }]] },
+  knee: { jp: 'Knee', en: 'Knee', what: 'How smoothly compression fades in around the threshold.',
+    body: ['With a hard knee (0 dB) the full ratio kicks in the moment the threshold is crossed. With a soft knee, across a window W centred on T, the ratio moves gradually from 1:1 to the set value along a quadratic curve.',
+           'Because the onset is blurred, GR coming and going is less noticeable and sounds more transparent. Part of why optical units (LA-2A style) sound natural is that they effectively have a very wide soft knee. The shaded area on the transfer curve is the knee.'],
+    typ: ['Transparent control: 6–12 dB', 'Punch and presence: 0–3 dB'],
+    f: `Where |2(x − T)| ≤ W:\ny = x + (1/R − 1)(x − T + W/2)² / 2W`,
+    tries: [['Hard knee 0 dB', { knee: 0 }], ['Soft knee 18 dB', { knee: 18 }]] },
+  attack: { jp: 'Attack', en: 'Attack', what: 'How fast GR moves deeper toward its target.',
+    body: ['Attack on this page is the time constant τ (time to reach about 63% of the target). With a slow attack, transients slip through before compression catches them, so the onset is emphasised and you get “punch”. A fast attack squashes the onset, pushing the sound back and making it denser.',
+           'Below a few ms, the gain wobbles within a single low-frequency cycle (20 ms at 50 Hz), reshaping the waveform itself and causing distortion. Manufacturers also define time differently (63%, 90%, reaching a fixed dB…), so “10 ms” on one unit rarely matches another. The single-snare source makes the difference obvious.'],
+    typ: ['1176 style: 20–800 µs (very fast)', 'Vocals: 3–15 ms', 'Keep drum punch: 20–40 ms', 'Mix bus: 10–30 ms'],
+    f: `g${sub('s')}[n] = α${sub('A')}·g${sub('s')}[n−1] + (1 − α${sub('A')})·g${sub('c')}[n]\nα${sub('A')} = e<sup>−1 / (τ<sub>A</sub>·f<sub>s</sub>)</sup>`,
+    tries: [['Switch to single snare', null, 'snare'], ['0.1 ms (squash)', { attack: 0.1 }], ['30 ms (let through)', { attack: 30 }]] },
+  release: { jp: 'Release', en: 'Release', what: 'How fast GR returns to zero after the input drops below the threshold.',
+    body: ['A fast release lets GR recover quickly, raising the average level and bringing the sound forward. Too fast, and it follows the low-frequency waveform and distorts, and the GR movement is heard as “pumping” (listen to the pad in the loop).',
+           'With a slow release, GR never fully recovers before the next note, so the sound stays held down and flat. Set it so GR has just recovered right before the next beat, and the compression breathes with the song.'],
+    typ: ['Vocals: 80–300 ms', 'Drum bus: 50–150 ms', 'Mix bus: 100–600 ms'],
+    f: `g${sub('c')} &lt; g${sub('s')}(GR getting shallower): use α${sub('R')} \n→ separate coefficients for attack and release (branching smoother)`,
+    tries: [['30 ms (pumping)', { release: 30 }], ['Match an eighth note', { release: 'eighth' }], ['1200 ms (held down)', { release: 1200 }]] },
+  detector: { jp: 'Detector', en: 'Detector', what: 'What the sidechain measures as “level”.',
+    body: ['Peak looks at the instantaneous amplitude, so it reacts to transients immediately. RMS averages the squared amplitude over time — an energy measure that moves more like perceived loudness.',
+           'At the same threshold, RMS buries short peaks in the average, so transients pass more easily and GR is shallower and smoother.'],
+    typ: ['Peak control, transient control: Peak', 'Natural control of vocals and buses: RMS (5–50 ms)'],
+    f: `Peak: x = max(|L|, |R|)   ← stereo link\nRMS : m[n] = α·m[n−1] + (1−α)·x²,  x = √m`,
+    tries: [['Peak', { detector: 'peak' }], ['RMS 50 ms', { detector: 'rms', rms: 50 }]] },
+  rms: { jp: 'RMS window', en: 'RMS window', what: 'The averaging time for RMS detection.',
+    body: ['Shorter gets closer to Peak; longer reacts only to the slow average level.',
+           'A longer window sounds a bit like a slower attack, but it works in a different place. The RMS window is about what the compressor sees (detection); attack is about how fast it follows what it sees (ballistics). Inactive when Peak is selected.'],
+    typ: ['5–10 ms: fast, close to Peak', '30–80 ms: closer to loudness'],
+    f: `α = e<sup>−1 / (window·f<sub>s</sub>)</sup>`,
+    tries: [['RMS 5 ms', { detector: 'rms', rms: 5 }], ['RMS 80 ms', { detector: 'rms', rms: 80 }]] },
+  topology: { jp: 'Topology', en: 'Topology', what: 'Whether the sidechain signal is taken before or after the gain element.',
+    body: ['Feed-forward (FF) detects the input, so the ratio is exactly what the static curve says. Most modern VCA and digital compressors work this way.',
+           'Feedback (FB) detects the compressed output. The deeper the GR, the lower the detected level, so it regulates itself: the effective ratio is gentler and the action smoother. Many vintage units such as the LA-2A and Fairchild 660 are built this way. Play in FB and you will see the dot ride above the static line.'],
+    typ: ['Accurate peak control: FF', 'Vintage-style grip and naturalness: FB'],
+    f: `FF: detect ← x[n] (input)\nFB: detect ← y[n−1] (output one sample ago)`,
+    tries: [['Feed-forward', { topology: 'ff' }], ['Feedback', { topology: 'fb' }]] },
+  lookahead: { jp: 'Lookahead', en: 'Lookahead', what: 'Delays only the audio so the sidechain can “see a little into the future”.',
+    body: ['However fast the attack, gain only moves after it sees the input, so the first few samples of a transient slip through. Lookahead delays the main audio by a few ms and starts GR before the transient arrives.',
+           'This is how mastering limiters stop peaks without overshoot. The cost is latency, which the DAW lines up with other tracks using plugin delay compensation (PDC).'],
+    typ: ['Limiters: 1–5 ms', 'Regular compression: 0 ms (usually off)'],
+    f: `y[n] = x[n − D] · g[n]\nD = lookahead · f${sub('s')}   ← reported to the host as latency`,
+    tries: [['0 ms', { lookahead: 0 }], ['5 ms + attack 2 ms', { lookahead: 5, attack: 2 }]] },
+  makeup: { jp: 'Makeup', en: 'Makeup gain', what: 'Brings the level lost to compression back up at the output.',
+    body: ['A compressor turns peaks down, so on its own everything gets quieter. Bringing the peaks back to where they were with makeup raises the average level, and the sound feels denser.',
+           'Always match levels when comparing. Our ears tend to prefer the louder version even by 1 dB, so you end up judging loudness instead of compression. The basic move is to toggle bypass and find where both feel equally loud.'],
+    typ: ['Start around the average GR', 'Where bypass on/off feel equally loud'],
+    f: `g = 10<sup>(−g<sub>s</sub> + M) / 20</sup>`,
+    tries: [['0 dB', { makeup: 0 }], ['Match the average GR', { makeup: 'auto' }]] },
+  mix: { jp: 'Mix', en: 'Dry / Wet', what: 'The blend between the compressed (wet) and original (dry) signal.',
+    body: ['This is parallel (New York) compression. The wet signal is squashed hard for density and sustain while the dry keeps its transients. Blend them and the quiet details come up without losing the attack.',
+           'Mixing inside the plugin, unlike a parallel send in the DAW, avoids phase problems from lookahead or other delays (the dry path is delayed by the same amount).'],
+    typ: ['NY compression: 20–50% wet + heavy compression', 'Normal: 100%'],
+    f: `y = mix · (x · g · M) + (1 − mix) · x`,
+    tries: [['NY parallel settings', { threshold: -36, ratio: 10, knee: 0, attack: 1, release: 60, mix: 35, makeup: 10 }], ['Back to 100%', { mix: 100 }]] },
+  vca: { jp: 'Gain element (VCA)', en: 'Gain element', what: 'Where the gain calculated by the sidechain is actually multiplied into the audio.',
+    body: ['The sidechain only works out how much to turn down; this multiplication is what changes the sound. In analog gear a VCA (voltage-controlled amplifier), FET (1176), optical cell (LA-2A) or tube (variable-mu) does this job, and each element’s speed and distortion become the compressor’s character.',
+           'In digital it is a plain multiplication, so character comes from the detector and ballistics design, plus any saturation you add on purpose. A good starting point when deciding where your own plugin’s personality should come from.'],
+    typ: ['VCA: fast and accurate', 'FET: very fast attack (1176 style)', 'Optical: slow, program-dependent (LA-2A style)', 'Variable-mu: gentle and thick (Fairchild style)'],
+    f: `y[n] = x[n − D] · 10<sup>−g<sub>s</sub>[n] / 20</sup>`,
+    tries: [] },
+};
+const DYN = new Set(['threshold', 'ratio', 'knee', 'release', 'makeup']);
+let exKey = 'threshold';
+function selectEx(k) { if (exKey === k) return; exKey = k; renderEx(); }
+function renderEx() {
+  const e = EX[exKey]; if (!e) return;
+  let extra = '';
+  if (exKey === 'threshold' || exKey === 'ratio' || exKey === 'knee') {
+    const x = -6, y = CompCore.curve(x, P.threshold, P.ratio, P.knee), x2 = P.threshold - 6, y2 = CompCore.curve(x2, P.threshold, P.ratio, P.knee);
+    extra = `<div class="calc">With current settings: in −6.0 dB → out ${neg(y)} dB (GR ${(x - y).toFixed(1)} dB) / in ${neg(x2)} dB → GR ${(x2 - y2).toFixed(1)} dB</div>`;
+  }
+  let typ = e.typ.slice();
+  if (exKey === 'release') {
+    const s = getSource(curKey), bpm = s.bpm || 120, q = 60000 / bpm;
+    typ.unshift(`Current source (${bpm} BPM${s.bpm ? '' : ', assumed — tempo unknown'}): quarter note = ${Math.round(q)} ms, eighth note = ${Math.round(q / 2)} ms`);
+  }
+  $('#ex').innerHTML = `<h3>${e.jp}</h3><p class="what">${e.what}</p>
+    ${e.body.map((t) => `<p>${t}</p>`).join('')}
+    <h4>Typical settings</h4><ul>${typ.map((t) => `<li>${t}</li>`).join('')}</ul>
+    <h4>In DSP</h4><div class="formula">${e.f}</div>${extra}
+    ${e.tries.length ? `<h4>Try and compare</h4><div class="tries">${e.tries.map((t, i) => `<button class="btn" type="button" data-i="${i}">${t[0]}</button>`).join('')}</div>` : ''}`;
+  $('#ex').querySelectorAll('.tries .btn').forEach((b) => b.addEventListener('click', () => {
+    const t = e.tries[+b.dataset.i];
+    if (t[2]) { $('#src').value = t[2]; switchSource(t[2]); }
+    if (t[1]) applyParams(t[1]);
+  }));
+  document.querySelectorAll('.ctl').forEach((r) => r.classList.toggle('on', r.dataset.k === exKey));
+  document.querySelectorAll('.flow .blk').forEach((b) => b.classList.toggle('on', b.dataset.k === exKey || (exKey === 'release' && b.dataset.k === 'attack') || ((exKey === 'ratio' || exKey === 'knee') && b.dataset.k === 'threshold') || ((exKey === 'rms' || exKey === 'topology') && b.dataset.k === 'detector')));
+}
+
+/* ---------- source switching ---------- */
+function switchSource(k) {
+  curKey = k; needSim = true;
+  if (playing) { stopSource(); startSource(); liveRing = makeRing(ctx.sampleRate); trail = []; }
+  if (exKey === 'release') renderEx();
+}
+
+/* ---------- drawing ---------- */
+const tl = $('#tl'), tc = $('#tc'), gm = $('#gm');
+function tok() {
+  const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+  return { ink: g('--ink'), muted: g('--muted'), grid: g('--grid'), accent: g('--accent'), gr: g('--gr'), sig: g('--sig'), line: g('--line'), mono: g('--font-mono') };
+}
+function fit(c, hCss) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth || 300, h = hCss == null ? w : hCss;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); c.style.height = h + 'px'; }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  return { w, h, g };
+}
+const ringNow = () => (playing && liveRing ? liveRing : simRing);
+const stats = { max: 0, avg: 0, inPk: 0, outPk: 0 };
+function computeStats(r) {
+  let mx = 0, sum = 0, ip = 0, op = 0;
+  for (let i = 0; i < r.n; i++) { const g = r.gr[i]; if (g > mx) mx = g; sum += g; if (r.inp[i] > ip) ip = r.inp[i]; if (r.out[i] > op) op = r.out[i]; }
+  stats.max = mx; stats.avg = sum / r.n; stats.inPk = ip; stats.outPk = op;
+}
+function drawTimeline(t, r) {
+  const { w, h, g } = fit(tl, 280);
+  const padL = 36, padR = 22, top1 = 8, h1 = 168, top2 = top1 + h1 + 26, h2 = h - top2 - 6;
+  const lo = -48, hi = 6, Y = (d) => top1 + (1 - (Math.max(lo, Math.min(hi, d)) - lo) / (hi - lo)) * h1;
+  const GRM = 24, Yg = (v) => top2 + Math.min(v, GRM) / GRM * h2;
+  g.font = `10px ${t.mono}`; g.lineWidth = 1; g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (let d = 0; d >= -48; d -= 12) { const y = Math.round(Y(d)) + 0.5; g.strokeStyle = t.grid; g.beginPath(); g.moveTo(padL, y); g.lineTo(w - padR, y); g.stroke(); g.fillStyle = t.muted; g.fillText(d === 0 ? '0' : neg(d, 0), padL - 6, y); }
+  for (let d = 0; d <= 24; d += 6) { const y = Math.round(Yg(d)) + 0.5; g.strokeStyle = t.grid; g.beginPath(); g.moveTo(padL, y); g.lineTo(w - padR, y); g.stroke(); g.fillStyle = t.muted; g.fillText(d === 0 ? '0' : neg(-d, 0), padL - 6, y); }
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = t.muted;
+  g.fillText('LEVEL dBFS', padL + 4, top1 + 10); g.fillText('GR dB', padL + 4, top2 - 8);
+  if (!r) return;
+  const n = r.n, X = (j) => padL + j / (n - 1) * (w - padL - padR), idx = (j) => (r.w + j) % n;
+  g.beginPath(); g.moveTo(X(0), Y(lo));
+  for (let j = 0; j < n; j++) g.lineTo(X(j), Y(toDb(r.inp[idx(j)])));
+  g.lineTo(X(n - 1), Y(lo)); g.closePath(); g.globalAlpha = 0.75; g.fillStyle = t.sig; g.fill(); g.globalAlpha = 1;
+  g.beginPath();
+  for (let j = 0; j < n; j++) { const y = Y(toDb(r.out[idx(j)])); j ? g.lineTo(X(j), y) : g.moveTo(X(j), y); }
+  g.strokeStyle = t.accent; g.lineWidth = 1.4; g.stroke();
+  const ty = Math.round(Y(P.threshold)) + 0.5;
+  g.setLineDash([5, 4]); g.strokeStyle = t.ink; g.lineWidth = 1; g.beginPath(); g.moveTo(padL, ty); g.lineTo(w - padR, ty); g.stroke(); g.setLineDash([]);
+  g.fillStyle = t.ink; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('T', w - padR + 6, ty);
+  g.beginPath(); g.moveTo(X(0), top2);
+  for (let j = 0; j < n; j++) g.lineTo(X(j), Yg(r.gr[idx(j)]));
+  g.lineTo(X(n - 1), top2); g.closePath(); g.globalAlpha = 0.85; g.fillStyle = t.gr; g.fill(); g.globalAlpha = 1;
+  g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = t.muted;
+  g.fillText(playing ? '← 3 s ago   now →' : '0 s → 3 s', w - padR, h - 2 > top2 ? top2 - 8 : h - 2);
+}
+function drawTransfer(t) {
+  const { w, h, g } = fit(tc, null);
+  const lo = -60, hi = 6, padL = 34, padB = 26, padT = 8, padR = 10;
+  const X = (d) => padL + (d - lo) / (hi - lo) * (w - padL - padR), Y = (d) => padT + (1 - (d - lo) / (hi - lo)) * (h - padT - padB);
+  const T = P.threshold, R = P.ratio, W = P.knee;
+  g.font = `10px ${t.mono}`; g.lineWidth = 1;
+  if (W > 0) { g.fillStyle = t.accent; g.globalAlpha = 0.1; g.fillRect(X(T - W / 2), padT, X(T + W / 2) - X(T - W / 2), h - padT - padB); g.globalAlpha = 1; }
+  for (let d = -60; d <= 0; d += 12) {
+    const x = Math.round(X(d)) + 0.5, y = Math.round(Y(d)) + 0.5; g.strokeStyle = t.grid;
+    g.beginPath(); g.moveTo(x, padT); g.lineTo(x, h - padB); g.stroke(); g.beginPath(); g.moveTo(padL, y); g.lineTo(w - padR, y); g.stroke();
+    g.fillStyle = t.muted; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(d === 0 ? '0' : neg(d, 0), x, h - padB + 4);
+    g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(d === 0 ? '0' : neg(d, 0), padL - 5, y);
+  }
+  g.setLineDash([3, 4]); g.strokeStyle = t.muted; g.beginPath(); g.moveTo(X(lo), Y(lo)); g.lineTo(X(hi), Y(hi)); g.stroke();
+  g.strokeStyle = t.ink; g.beginPath(); g.moveTo(X(T), padT); g.lineTo(X(T), h - padB); g.stroke(); g.setLineDash([]);
+  g.fillStyle = t.ink; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('T', X(T) + 4, padT + 2);
+  g.save(); g.beginPath(); g.rect(padL, padT, w - padL - padR, h - padT - padB); g.clip();
+  g.beginPath();
+  for (let d = lo; d <= hi; d += 0.25) { const y = Y(CompCore.curve(d, T, R, W) + P.makeup); d === lo ? g.moveTo(X(d), y) : g.lineTo(X(d), y); }
+  g.strokeStyle = t.accent; g.lineWidth = 2.2; g.stroke();
+  if (playing) trail.forEach(([x, y], i) => { g.globalAlpha = (i + 1) / trail.length; g.fillStyle = t.gr; g.beginPath(); g.arc(X(x), Y(y), i === trail.length - 1 ? 5 : 2.5, 0, Math.PI * 2); g.fill(); });
+  g.globalAlpha = 1; g.restore();
+  g.fillStyle = t.muted; g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillText('Input dB →', w - padR, h - padB - 6);
+  g.textAlign = 'left'; g.fillText('↑ Output dB', padL + 6, padT + 12);
+}
+function drawMeter(t) {
+  const { w, h, g } = fit(gm, 54);
+  const MAX = 20, x0 = 8, x1 = w - 8, X = (v) => x1 - Math.min(v, MAX) / MAX * (x1 - x0), top = 6, bh = 18;
+  g.fillStyle = t.grid; g.fillRect(x0, top, x1 - x0, bh);
+  let v;
+  if (playing) { v = live.gr; const now = performance.now(); if (v >= live.hold || now - live.holdT > 1200) { live.hold = v; live.holdT = now; } }
+  else v = stats.max;
+  g.fillStyle = t.gr; g.fillRect(X(v), top, x1 - X(v), bh);
+  const mark = playing ? live.hold : stats.avg;
+  g.fillStyle = t.ink; g.fillRect(Math.round(X(mark)) - 1, top - 3, 2, bh + 6);
+  g.font = `10px ${t.mono}`; g.textAlign = 'center'; g.textBaseline = 'top';
+  [0, 1, 3, 6, 10, 15, 20].forEach((d) => { const x = Math.round(X(d)) + 0.5; g.strokeStyle = t.muted; g.beginPath(); g.moveTo(x, top + bh); g.lineTo(x, top + bh + 4); g.stroke(); g.fillStyle = t.muted; g.fillText(d === 0 ? '0' : '−' + d, x, top + bh + 6); });
+}
+let lastRo = '';
+function updateReadouts() {
+  const s = [stats.max.toFixed(1), stats.avg.toFixed(1), stats.inPk > 1e-6 ? neg(toDb(stats.inPk)) : '−∞', stats.outPk > 1e-6 ? neg(toDb(stats.outPk)) : '−∞', playing].join('|');
+  if (s === lastRo) return; lastRo = s;
+  $('#ro-max').textContent = stats.max > 0.05 ? '−' + stats.max.toFixed(1) : '0.0';
+  $('#ro-avg').textContent = stats.avg > 0.05 ? '−' + stats.avg.toFixed(1) : '0.0';
+  $('#ro-in').textContent = stats.inPk > 1e-6 ? neg(toDb(stats.inPk)) : '−∞';
+  $('#ro-out').textContent = stats.outPk > 1e-6 ? neg(toDb(stats.outPk)) : '−∞';
+}
+function frame() {
+  if (needSim) { simulate(); needSim = false; }
+  const t = tok(), r = ringNow();
+  if (r) computeStats(r);
+  drawTimeline(t, r); drawTransfer(t); drawMeter(t); updateReadouts();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- code panel ---------- */
+const CODE = `// Processing for one sample (inside a JUCE processBlock loop)
+// Coefficients are computed in prepareToPlay / on parameter change
+//   attackCoef  = std::exp(-1.0f / (attackMs  * 0.001f * sampleRate));
+//   releaseCoef = std::exp(-1.0f / (releaseMs * 0.001f * sampleRate));
+
+float inL = x[0][i] * inputGain, inR = x[1][i] * inputGain;
+
+// 1) Detector: stereo-linked peak (FB looks at the previous output)
+float sL = feedback ? lastOutL : inL;
+float sR = feedback ? lastOutR : inR;
+float level = std::max(std::abs(sL), std::abs(sR));
+float xdB   = juce::Decibels::gainToDecibels(level, -140.0f);
+
+// 2) Gain computer: static curve (soft knee)
+float d = xdB - threshold, ydB;
+if (2.0f * d < -knee)                      ydB = xdB;
+else if (knee > 0 && 2.0f * std::abs(d) <= knee)
+    ydB = xdB + (1.0f / ratio - 1.0f) * (d + knee * 0.5f) * (d + knee * 0.5f) / (2.0f * knee);
+else                                       ydB = threshold + d / ratio;
+float gc = xdB - ydB;                      // required GR [dB] (positive)
+
+// 3) Ballistics: one-pole with separate attack / release coefficients
+float a = (gc > gs) ? attackCoef : releaseCoef;
+gs = a * gs + (1.0f - a) * gc;             // gs is kept as a member variable
+
+// 4) Lookahead: delay only the audio by D samples (report with setLatencySamples(D))
+float dL = delayL.pushAndRead(inL), dR = delayR.pushAndRead(inR);
+
+// 5) VCA: dB → linear gain, then makeup and dry/wet
+float g  = juce::Decibels::decibelsToGain(-gs);
+float wL = dL * g, wR = dR * g;
+lastOutL = wL; lastOutR = wR;              // for FB
+y[0][i] = mix * wL * makeupGain + (1.0f - mix) * dL;
+y[1][i] = mix * wR * makeupGain + (1.0f - mix) * dR;`;
+function renderCode() {
+  const esc = CODE.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  $('#code').innerHTML = esc.replace(/(\/\/.*)$/gm, '<span class="c">$1</span>');
+}
+
+/* ---------- wiring ---------- */
+buildControls();
+const psel = $('#preset');
+psel.innerHTML = '<option value="" disabled>Preset</option>' + PRESETS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+psel.value = 'default';
+psel.addEventListener('change', () => { const p = PRESETS.find((x) => x[0] === psel.value); if (p) applyParams({ ...DEFAULTS, ...p[2] }); });
+$('#play').addEventListener('click', togglePlay);
+$('#src').addEventListener('change', (e) => switchSource(e.target.value));
+$('#bypass').addEventListener('click', () => { P.bypass = !P.bypass; $('#bypass').setAttribute('aria-pressed', P.bypass); $('#bypass').textContent = P.bypass ? 'Bypassed' : 'Bypass'; paramChanged(); });
+$('#file').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    status('Loading…'); await ensureCtx();
+    const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+    const L = buf.getChannelData(0).slice(), R = (buf.numberOfChannels > 1 ? buf.getChannelData(1) : buf.getChannelData(0)).slice();
+    sources.file = { L, R, sr: buf.sampleRate, bpm: null, name: f.name }; delete bufCache.file;
+    let opt = $('#src').querySelector('option[value="file"]');
+    if (!opt) { opt = document.createElement('option'); opt.value = 'file'; $('#src').appendChild(opt); }
+    opt.textContent = 'Loaded: ' + f.name; $('#src').value = 'file'; switchSource('file');
+    status('');
+  } catch (err) { status('This format could not be loaded. Try WAV, MP3, AAC or similar.'); }
+});
+document.querySelectorAll('.flow .blk').forEach((b) => {
+  b.addEventListener('click', () => selectEx(b.dataset.k));
+  b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectEx(b.dataset.k); } });
+});
+syncControls(); renderEx(); renderCode();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
