@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="コンプレッサーのスレッショルド、レシオ、アタック、リリース、ニー、検出方式、フィードバック構造を、ブラウザ内で動くDSPで聴いて・見て理解できる無料の学習アプリ。">
+<meta name="description" content="コンプレッサーのスレッショルド、レシオ、アタック、リリース、ニー、検出方式、フィードバック構造、VCA・FET・光学・Vari-Muのゲイン素子の違いを、ブラウザ内で動くDSPで聴いて・見て理解できる無料の学習アプリ。">
 <meta name="theme-color" content="#0d6575">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:site_name" content="コンプ解剖ラボ">
 <meta property="og:title" content="コンプ解剖ラボ｜コンプレッサーの仕組みを聴いて理解する">
-<meta property="og:description" content="コンプレッサーのスレッショルド、レシオ、アタック、リリース、ニー、検出方式、フィードバック構造を、ブラウザ内で動くDSPで聴いて・見て理解できる無料の学習アプリ。">
+<meta property="og:description" content="コンプレッサーのスレッショルド、レシオ、アタック、リリース、ニー、検出方式、フィードバック構造、VCA・FET・光学・Vari-Muのゲイン素子の違いを、ブラウザ内で動くDSPで聴いて・見て理解できる無料の学習アプリ。">
 <meta property="og:url" content="https://kazufumi01.github.io/comp-lab/">
 <meta property="og:image" content="https://kazufumi01.github.io/comp-lab/ogp.png">
 <meta property="og:image:width" content="1200">
@@ -112,7 +112,7 @@ legend b{font-size:13px}
 .ctl output{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
 .ctl input[type=range]{grid-column:1/-1}
 .ctl.dim{opacity:.45}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;grid-column:1/-1;margin-top:4px;width:max-content;max-width:100%}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:4px;overflow:hidden;grid-column:1/-1;margin-top:4px;width:max-content;max-width:100%}
 .seg button{font:inherit;font-size:12px;background:transparent;color:var(--ink);border:0;padding:5px 12px;cursor:pointer;min-height:30px}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
@@ -165,7 +165,7 @@ a{color:var(--accent)}
       <a class="lang" href="./en/" hreflang="en" lang="en">English</a>
     </div>
     <div class="transport">
-      <button class="btn primary" id="play" type="button">▶ 再生</button>
+      <button class="btn primary" id="play" type="button" title="再生／停止（スペースキー）" aria-keyshortcuts="Space">▶ 再生</button>
       <select class="sel" id="src" aria-label="音源">
         <option value="loop">ドラム＋ベース＋パッド（92 BPM）</option>
         <option value="snare">スネア単発（80 BPM・アタック観察用）</option>
@@ -188,6 +188,7 @@ a{color:var(--accent)}
           <span><i style="background:var(--accent)"></i>出力ピーク</span>
           <span><i style="background:var(--gr)"></i>ゲインリダクション</span>
           <span><i style="background:transparent;border-top:2px dashed var(--ink);height:0;border-radius:0"></i>スレッショルド</span>
+          <span id="lg-mem" hidden><i style="background:transparent;border-top:2px dotted var(--ink);height:0;border-radius:0"></i>セルの記憶（光学のみ・0〜1）</span>
         </div>
         <p class="note" id="tlnote">停止中は先頭3秒を同じDSPでオフライン計算して表示しています。パラメーターを動かすと即座に再計算されます。</p>
       </section>
@@ -228,7 +229,7 @@ a{color:var(--accent)}
           <circle class="dot" cx="266" cy="48" r="3"/>
           <path class="wire" d="M266 48 V14 H495 V30" marker-end="url(#ah)"/>
           <text class="lab" x="380" y="27">ドライ（原音）</text>
-          <g class="blk" data-k="vca" tabindex="0" role="button" aria-label="ゲイン素子 VCA"><circle class="box" cx="300" cy="48" r="18"/><text x="300" y="53" style="font-size:16px">×</text></g>
+          <g class="blk" data-k="element" tabindex="0" role="button" aria-label="ゲイン素子"><circle class="box" cx="300" cy="48" r="18"/><text x="300" y="53" style="font-size:16px">×</text><text class="sub" id="el-label" x="290" y="86" style="text-anchor:end">VCA</text></g>
           <path class="wire" d="M318 48 H344" marker-end="url(#ah)"/>
           <circle class="dot fb" cx="330" cy="48" r="3"/>
           <g class="blk" data-k="makeup" tabindex="0" role="button" aria-label="メイクアップ"><rect class="box" x="344" y="30" width="88" height="36" rx="4"/><text x="388" y="52">メイクアップ</text></g>
@@ -265,8 +266,8 @@ a{color:var(--accent)}
 
   <footer class="foot">
     <div class="links"><a href="https://jpk.seesaa.net/article/521843924.html" target="_blank" rel="noopener">ブログ（コンプレッサー解説記事）</a><span>制作：Kazufumi Nishida, JPK with Claude,Perplexity and Others</span></div>
-    <p>このページのDSPは仕組みを学ぶための教育用実装です。特定のハードウェアやプラグインの音を再現するものではありません。</p>
-    <p>本ページに登場する製品名・機種名（1176、LA-2A、Fairchild、FabFilter Pro-C ほか）は各社の商標または登録商標です。説明のための参照であり、各社とは関係ありません。</p>
+    <p>このページのDSPは仕組みを学ぶための教育用実装です。VCA・FET・光学・Vari-Muの各モードは素子の振る舞いを単純化したモデルで、特定のハードウェアやプラグインの音を再現するものではありません。</p>
+    <p>本ページに登場する製品名・機種名（1176、LA-2A、Fairchild、Manley、SSL、dbx、API、FabFilter Pro-C ほか）は各社の商標または登録商標です。説明のための参照であり、各社とは関係ありません。</p>
     <p>参考文献：D. Giannoulis, M. Massberg, J. D. Reiss, "Digital Dynamic Range Compressor Design — A Tutorial and Analysis," J. Audio Eng. Soc., vol. 60, no. 6, 2012.</p>
   </footer>
 </div>
@@ -276,8 +277,8 @@ class CompLabProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.c = new CompCore(sampleRate);
-    this.m = new Float32Array(4);
-    this.out = new Float32Array(16);
+    this.m = new Float32Array(5);
+    this.out = new Float32Array(20);
     this.k = 0;
     this.scratch = new Float32Array(128);
     this.port.onmessage = (e) => this.c.set(e.data);
@@ -288,7 +289,7 @@ class CompLabProcessor extends AudioWorkletProcessor {
     const n = o[0].length;
     if (this.scratch.length < n) this.scratch = new Float32Array(n);
     this.c.run(i[0], i[1] || i[0], o[0], o[1] || this.scratch, n, this.m);
-    this.out.set(this.m, this.k * 4);
+    this.out.set(this.m, this.k * 5);
     if (++this.k === 4) { this.port.postMessage(this.out.slice(0)); this.k = 0; }
     return true;
   }
@@ -302,8 +303,10 @@ class CompCore {
   constructor(fs) {
     this.fs = fs;
     this.p = { input: 0, threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4,
-               detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 1, bypass: false };
+               detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 1, bypass: false, element: 'vca' };
     this.ms = 0; this.gs = 0; this.fbL = 0; this.fbR = 0;
+    this.gF = 0; this.gS = 0; this.mem = 0;
+    this.dxL = 0; this.dyL = 0; this.dxR = 0; this.dyR = 0;
     this.size = Math.ceil(fs * 0.012) + 2;
     this.dL = new Float32Array(this.size); this.dR = new Float32Array(this.size); this.w = 0;
     this.set({});
@@ -313,18 +316,26 @@ class CompCore {
     const p = this.p, fs = this.fs;
     const tc = (ms) => Math.exp(-1 / (Math.max(ms, 0.001) * 0.001 * fs));
     this.aA = tc(p.attack); this.aR = tc(p.release); this.aM = tc(p.rms);
+    this.oFA = tc(10); this.oFR = tc(60); this.oSA = tc(30); this.oMU = tc(1500); this.oMD = tc(4000);
+    this.dcR = Math.exp(-2 * Math.PI * 8 / fs);
     this.la = Math.min(this.size - 1, Math.round(p.lookahead * 0.001 * fs));
     this.gIn = Math.pow(10, p.input / 20); this.gMk = Math.pow(10, p.makeup / 20);
   }
-  static curve(x, T, R, W) {
+  /* static characteristic: output dB for input dB */
+  static curve(x, T, R, W, el) {
+    if (el === 'varimu') {                       // ratio rises with level, knee is built in
+      const over = x - T + 6;
+      return over <= 0 ? x : x - (1 - 1 / R) * over * over / (over + 12);
+    }
     const d = x - T;
     if (2 * d < -W) return x;
     if (W > 0 && 2 * Math.abs(d) <= W) return x + (1 / R - 1) * (d + W / 2) * (d + W / 2) / (2 * W);
     return T + d / R;
   }
   run(iL, iR, oL, oR, n, m) {
-    const p = this.p, T = p.threshold, R = p.ratio, W = p.knee;
+    const p = this.p, T = p.threshold, R = p.ratio, W = p.knee, el = p.element, fs = this.fs;
     const rms = p.detector === 'rms', fb = p.topology === 'fb', mix = p.mix, byp = p.bypass;
+    const opto = el === 'opto', colour = el === 'fet' || el === 'varimu';
     let inPk = 0, outPk = 0, grMax = 0, lvlMax = -150;
     for (let i = 0; i < n; i++) {
       const xl = iL[i] * this.gIn, xr = iR[i] * this.gIn;
@@ -333,15 +344,36 @@ class CompCore {
       if (rms) { const e = Math.max(sl * sl, sr * sr); this.ms = this.aM * this.ms + (1 - this.aM) * e; lvl = Math.sqrt(this.ms); }
       else lvl = Math.max(Math.abs(sl), Math.abs(sr));
       const xdB = lvl > 1e-7 ? 20 * Math.log10(lvl) : -140;
-      const gc = xdB - CompCore.curve(xdB, T, R, W);
-      const a = gc > this.gs ? this.aA : this.aR;
-      this.gs = a * this.gs + (1 - a) * gc;
+      const gc = xdB - CompCore.curve(xdB, T, R, W, el);
+      if (opto) {
+        /* EL panel + CdS cell: fast half (10/60 ms) + slow half whose release grows with "memory" */
+        const aF = gc > this.gF ? this.oFA : this.oFR;
+        this.gF = aF * this.gF + (1 - aF) * gc;
+        const aS = gc > this.gS ? this.oSA : Math.exp(-1 / ((0.5 + 4.5 * this.mem) * fs));
+        this.gS = aS * this.gS + (1 - aS) * gc;
+        const tgt = Math.min(1, gc / 12), aMm = tgt > this.mem ? this.oMU : this.oMD;
+        this.mem = aMm * this.mem + (1 - aMm) * tgt;
+        this.gs = 0.5 * this.gF + 0.5 * this.gS;
+      } else {
+        const a = gc > this.gs ? this.aA : this.aR;
+        this.gs = a * this.gs + (1 - a) * gc;
+      }
       this.dL[this.w] = xl; this.dR[this.w] = xr;
       let r = this.w - this.la; if (r < 0) r += this.size;
       const dl = this.dL[r], dr = this.dR[r];
       if (++this.w >= this.size) this.w = 0;
       const g = Math.pow(10, -this.gs / 20);
-      const wl = dl * g, wr = dr * g;
+      let wl = dl * g, wr = dr * g;
+      if (colour) {
+        /* FET: distortion grows with GR / Vari-Mu: steady even-order tube colour */
+        const gn = Math.min(this.gs, 20) / 20;
+        const dv = el === 'fet' ? 0.5 + 1.5 * gn : 0.8 + 0.4 * gn;
+        const a2 = el === 'fet' ? 0.05 + 0.2 * gn : 0.15 + 0.1 * gn;
+        const ul = Math.tanh(dv * (wl + a2 * wl * wl)) / dv, ur = Math.tanh(dv * (wr + a2 * wr * wr)) / dv;
+        const yl = ul - this.dxL + this.dcR * this.dyL, yr = ur - this.dxR + this.dcR * this.dyR;
+        this.dxL = ul; this.dyL = yl; this.dxR = ur; this.dyR = yr;
+        wl = yl; wr = yr;
+      }
       this.fbL = wl; this.fbR = wr;
       let yl, yr;
       if (byp) { yl = dl; yr = dr; }
@@ -352,7 +384,7 @@ class CompCore {
       if (this.gs > grMax) grMax = this.gs;
       if (xdB > lvlMax) lvlMax = xdB;
     }
-    m[0] = inPk; m[1] = outPk; m[2] = grMax; m[3] = lvlMax;
+    m[0] = inPk; m[1] = outPk; m[2] = grMax; m[3] = lvlMax; m[4] = this.mem;
   }
 }
 </script>
@@ -367,7 +399,7 @@ const toDb = (v) => (v > 1e-6 ? 20 * Math.log10(v) : -120);
 
 /* ---------- parameters ---------- */
 const DEFAULTS = { input: 0, threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4,
-  detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 100 };
+  detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 100, element: 'vca' };
 const P = { ...DEFAULTS, bypass: false };
 
 const fmtMs = (v) => v < 1 ? Math.round(v * 1000) + ' µs' : v < 10 ? v.toFixed(1) + ' ms' : Math.round(v) + ' ms';
@@ -384,10 +416,12 @@ const CTRL = {
   mix:       { jp: 'ミックス', en: 'Dry / Wet', min: 0, max: 100, step: 1, fmt: (v) => Math.round(v) + ' %' },
 };
 const SEGS = {
+  element: { jp: 'ゲイン素子', en: 'Element', opts: [['vca', 'VCA'], ['fet', 'FET'], ['opto', '光学'], ['varimu', 'Vari-Mu']] },
   detector: { jp: '検出方式', en: 'Detector', opts: [['peak', 'Peak'], ['rms', 'RMS']] },
   topology: { jp: 'トポロジー', en: 'Topology', opts: [['ff', 'フィードフォワード'], ['fb', 'フィードバック']] },
 };
 const GROUPS = [
+  { en: 'Gain element', jp: '何で絞るか', keys: ['element'] },
   { en: 'Input', jp: '入力', keys: ['input'] },
   { en: 'Gain computer', jp: 'どれだけ圧縮するか', keys: ['threshold', 'ratio', 'knee'] },
   { en: 'Ballistics', jp: 'どれだけ速く反応するか', keys: ['attack', 'release'] },
@@ -395,14 +429,17 @@ const GROUPS = [
   { en: 'Output', jp: '出力', keys: ['makeup', 'mix'] },
 ];
 const PRESETS = [
-  ['default', '初期値', {}],
-  ['vocal', 'ボーカル（光学風：FB＋RMS）', { threshold: -24, ratio: 3, knee: 12, attack: 10, release: 300, makeup: 5, detector: 'rms', rms: 30, topology: 'fb' }],
+  ['default', '初期値（VCA）', {}],
+  ['la2a', 'LA-2A風（光学・FB）', { element: 'opto', threshold: -26, ratio: 3, knee: 12, makeup: 5, detector: 'rms', rms: 10, topology: 'fb' }],
+  ['1176', '1176風（FET・速いアタック）', { element: 'fet', threshold: -24, ratio: 4, knee: 2, attack: 0.4, release: 150, makeup: 6 }],
+  ['fairchild', 'Fairchild風（Vari-Mu・バス）', { element: 'varimu', threshold: -18, ratio: 6, attack: 1, release: 400, makeup: 3, detector: 'rms', rms: 10 }],
   ['drumbus', 'ドラムバス（アタックを通す）', { threshold: -20, ratio: 4, knee: 3, attack: 30, release: 80, makeup: 4 }],
   ['fast', '速いアタック（ピークを潰す）', { threshold: -22, ratio: 8, knee: 0, attack: 0.2, release: 60, makeup: 7 }],
   ['glue', 'ミックスバス（グルー）', { threshold: -14, ratio: 2, knee: 6, attack: 30, release: 326, makeup: 1.5, detector: 'rms', rms: 10 }],
   ['limit', 'リミッター（ルックアヘッド）', { threshold: -8, ratio: 20, knee: 0, attack: 0.5, release: 50, makeup: 6, lookahead: 5 }],
   ['ny', 'NYパラレル', { threshold: -36, ratio: 10, knee: 0, attack: 1, release: 60, makeup: 10, mix: 35 }],
 ];
+const PR = (k) => ({ ...DEFAULTS, ...PRESETS.find((x) => x[0] === k)[2] });
 
 /* ---------- test signals ---------- */
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 * 2 - 1; }; }
@@ -479,17 +516,17 @@ function getSource(k) {
 }
 
 /* ---------- rings & offline preview ---------- */
-function makeRing(sr) { const n = Math.floor(SIM_SEC * sr / BLOCK); return { n, inp: new Float32Array(n), out: new Float32Array(n), gr: new Float32Array(n), w: 0 }; }
-function push(r, a, b, c) { r.inp[r.w] = a; r.out[r.w] = b; r.gr[r.w] = c; r.w = (r.w + 1) % r.n; }
+function makeRing(sr) { const n = Math.floor(SIM_SEC * sr / BLOCK); return { n, inp: new Float32Array(n), out: new Float32Array(n), gr: new Float32Array(n), mem: new Float32Array(n), w: 0 }; }
+function push(r, a, b, c, d) { r.inp[r.w] = a; r.out[r.w] = b; r.gr[r.w] = c; r.mem[r.w] = d || 0; r.w = (r.w + 1) % r.n; }
 const coreParams = () => ({ ...P, mix: P.mix / 100 });
 let simRing = null, needSim = true;
 function simulate() {
   const s = getSource(curKey), core = new CompCore(s.sr); core.set(coreParams());
   const ring = makeRing(s.sr), len = s.L.length;
-  const bl = new Float32Array(BLOCK), br = new Float32Array(BLOCK), oL = new Float32Array(BLOCK), oR = new Float32Array(BLOCK), m = new Float32Array(4);
+  const bl = new Float32Array(BLOCK), br = new Float32Array(BLOCK), oL = new Float32Array(BLOCK), oR = new Float32Array(BLOCK), m = new Float32Array(5);
   for (let b = 0; b < ring.n; b++) {
     for (let i = 0; i < BLOCK; i++) { const j = (b * BLOCK + i) % len; bl[i] = s.L[j]; br[i] = s.R[j]; }
-    core.run(bl, br, oL, oR, BLOCK, m); push(ring, m[0], m[1], m[2]);
+    core.run(bl, br, oL, oR, BLOCK, m); push(ring, m[0], m[1], m[2], m[4]);
   }
   ring.w = 0; simRing = ring;
 }
@@ -542,11 +579,11 @@ async function togglePlay() {
 }
 function onMeter(e) {
   const a = e.data;
-  for (let k = 0; k < 4; k++) { const o = k * 4; push(liveRing, a[o], a[o + 1], a[o + 2]);
+  for (let k = 0; k < 4; k++) { const o = k * 5; push(liveRing, a[o], a[o + 1], a[o + 2], a[o + 4]);
     const x = P.topology === 'fb' ? toDb(a[o]) : a[o + 3];
     if (x > -70) trail.push([x, x - a[o + 2] + P.makeup]); }
   if (trail.length > 28) trail = trail.slice(-28);
-  live.gr = a[14];
+  live.gr = a[17];
 }
 function sendParams() { if (node) node.port.postMessage(coreParams()); }
 
@@ -585,14 +622,16 @@ function syncControls() {
     $('#v-' + k).textContent = c.fmt(P[k]);
   });
   Object.keys(SEGS).forEach((k) => SEGS[k].opts.forEach(([v]) => $(`#s-${k}-${v}`).setAttribute('aria-pressed', P[k] === v)));
-  const rmsOn = P.detector === 'rms';
-  $('#c-rms').disabled = !rmsOn; document.querySelector('.ctl[data-k="rms"]').classList.toggle('dim', !rmsOn);
+  const off = { rms: P.detector !== 'rms', attack: P.element === 'opto', release: P.element === 'opto', knee: P.element === 'varimu' };
+  Object.entries(off).forEach(([k, v]) => { $('#c-' + k).disabled = v; document.querySelector(`.ctl[data-k="${k}"]`).classList.toggle('dim', v); });
+  $('#el-label').textContent = { vca: 'VCA', fet: 'FET', opto: '光学セル', varimu: 'Vari-Mu 真空管' }[P.element];
+  $('#lg-mem').hidden = P.element !== 'opto';
   $('#flow').dataset.topo = P.topology;
   $('#lat').textContent = `レイテンシ ${P.lookahead.toFixed(1)} ms`;
 }
 function paramChanged(k) {
   syncControls(); sendParams(); needSim = true;
-  if (k && exKey && (k === exKey || DYN.has(exKey))) renderEx();
+  if (k && exKey && (k === exKey || DYN.has(exKey) || k === 'element')) renderEx();
 }
 function applyParams(o) {
   const bpm = getSource(curKey).bpm || 120;
@@ -679,21 +718,50 @@ const EX = {
     typ: ['NYコンプ：ウェット20〜50%＋強めの圧縮', '通常：100%'],
     f: `y = mix · (x · g · M) + (1 − mix) · x`,
     tries: [['NYパラレル設定', { threshold: -36, ratio: 10, knee: 0, attack: 1, release: 60, mix: 35, makeup: 10 }], ['100% に戻す', { mix: 100 }]] },
-  vca: { jp: 'ゲイン素子（VCA）', en: 'Gain element', what: 'サイドチェインが計算したゲインを、実際に音声へ掛け算する部分。',
-    body: ['サイドチェインは「どれだけ下げるか」を計算するだけで、音を変えるのはこの掛け算です。アナログでは VCA（電圧制御アンプ）、FET（1176）、光学セル（LA-2A）、真空管（Variable-Mu）がこの役割を担い、素子ごとの反応速度や歪みがコンプの個性になります。',
-           'デジタルでは単純な乗算なので、キャラクターは検出とバリスティクスの設計、そして意図的に加えるサチュレーションで作ります。オリジナルプラグインの個性をどこで出すか考えるときの出発点です。'],
-    typ: ['VCA：速く正確', 'FET：非常に速いアタック（1176系）', '光学：プログラム依存の遅い反応（LA-2A系）', 'Variable-Mu：ゆるやかで太い（Fairchild系）'],
-    f: `y[n] = x[n − D] · 10<sup>−g<sub>s</sub>[n] / 20</sup>`,
-    tries: [] },
+};
+const ELX = {
+  vca: { jp: 'VCA（電圧制御アンプ）', en: 'Gain element · VCA', what: 'トランジスタ回路で、制御電圧に比例したdB量だけ正確にゲインを下げる。',
+    body: ['トランジスタの電流と電圧が指数関数の関係にあることを利用した回路で、制御電圧を一定量動かすと決まったdB数だけゲインが変わります。サイドチェインの計算結果がほぼそのまま音量になるので、設定どおりにかかる「正確なコンプ」です。',
+           'デジタルの掛け算もこれと同じ考え方なので、VCAモードは理想的なVCAとして動きます。歪みを加えず、アタック・リリースも設定値どおりです。ほかの素子と比べるときの基準として使ってください。'],
+    typ: ['SSL系バスコンプ、dbx 160、API 2500', 'ピークを正確に管理したいとき、時間特性をすべて自分で決めたいとき'],
+    f: `y = x · 10<sup>−GR/20</sup>
+歪みなし／アタック・リリースは設定値どおり`,
+    tries: [['速いアタックでピークを潰す', { element: 'vca', threshold: -22, ratio: 8, knee: 0, attack: 0.2, release: 60, makeup: 7 }], ['同じ設定でFETに切り替え', { element: 'fet' }]] },
+  fet: { jp: 'FET', en: 'Gain element · FET', what: '電圧で抵抗値が変わるトランジスタ（FET）を可変抵抗として使い、分圧回路で信号をグラウンドへ逃がす。',
+    body: ['FETはゲートにかける電圧で、ドレイン―ソース間の抵抗値が変わります。これを分圧回路のグラウンド側に置くと、抵抗が下がるほど信号がグラウンドへ逃げて音量が下がります。電気で直接動かすので反応が非常に速く、数十µsのアタックが可能です。',
+           'ただしFETの抵抗値は、流れている音声の電圧にも少し影響されます。そのため波形がわずかに変形し、GRが深くなるほど倍音が増えます。このモードでは、GR量に応じて偶数次と奇数次の歪みが増えるようにしています。GRを10 dB以上かけて、VCAと切り替えて聴き比べてください。'],
+    typ: ['1176系：アタック20〜800 µs、リリース50 ms〜1.1 s', 'ボーカル・ベース・ドラムに「前に出る」質感を足したいとき'],
+    f: `u = w + a₂·w²        偶数次（FETの非対称性）
+y = tanh(d·u) / d    奇数次（d と a₂ は GR量に比例して増加）`,
+    tries: [['1176風プリセット', PR('1176')], ['GRを深く（T −34 dB）', { threshold: -34 }], ['VCAに戻して比較', { element: 'vca' }]] },
+  opto: { jp: '光学式（Opto）', en: 'Gain element · Opto', what: '光る素子と、光が当たると抵抗値が下がる素子（CdSセル）を組み合わせ、光の強さで音量を絞る。',
+    body: ['サイドチェインの信号でELパネルを光らせ、その光を受けたCdSセル（フォトレジスター）の抵抗値が下がることで、分圧回路が信号をグラウンドへ逃がします。電気→光→抵抗と変換を経由するため、動きはセルの化学反応の速さで決まります。アタック／リリースのノブがないのはこのためで、このモードでも無効になります。',
+           'CdSセルの戻り方は2段階です。最初の約50%は約60 msで素早く戻り、残りは0.5〜5秒かけてゆっくり戻ります。さらに、長く強く光を浴びるほど遅い成分が長くなる「記憶」があります。タイムラインのGRレーンの点線がその記憶量です。スネア単発では記憶がほとんど溜まらずGRが素早く戻ります。密度の高いループで深くかけると記憶が溜まり、GRが張り付いたように戻らなくなります。'],
+    typ: ['LA-2A系：アタック約10 ms、リリース約60 ms（50%）→ 0.5〜5 s（完全）', 'ボーカル：GR 3〜6 dB。10 dBを超えると記憶でリリースが数秒に伸びる'],
+    f: `速い成分 g<sub>F</sub>：アタック 10 ms／リリース 60 ms
+遅い成分 g<sub>S</sub>：アタック 30 ms／リリース 0.5 s + 4.5 s × 記憶
+GR = 0.5·g<sub>F</sub> + 0.5·g<sub>S</sub>
+記憶 → min(1, GR/12)   溜まる τ 1.5 s／抜ける τ 4 s`,
+    tries: [['LA-2A風プリセット', PR('la2a')], ['スネア単発で2段リリースを見る', null, 'snare'], ['ループで深くかけて記憶を溜める', { threshold: -36 }, 'loop']] },
+  varimu: { jp: 'Vari-Mu（真空管）', en: 'Gain element · Variable-Mu', what: '増幅率を変えられる真空管（リモートカットオフ管）のバイアスを動かし、真空管そのものの増幅率を下げる。',
+    body: ['サイドチェインの電圧で真空管のバイアス（グリッド電圧）を深くすると、真空管の増幅率（ミュー）が下がります。増幅率はなだらかなカーブで下がるため、入力が小さいうちはごく浅く、大きくなるほど強く圧縮されます。レシオが固定ではなく、レベルとともに上がっていくのが特徴です。',
+           'このモードでは、スレッショルドの6 dB下から圧縮が始まり、超過量が増えるにつれて設定レシオへ近づく静特性にしています。ニーは素子に組み込まれているので無効です。伝達カーブでVCAと切り替えると、折れ点のない大きな弧になるのがわかります。真空管由来の偶数次倍音も加えています。'],
+    typ: ['Fairchild 660/670系、Manley Vari-Mu', 'ミックスバス・マスター：GR 1〜3 dBで全体を「まとめる」用途'],
+    f: `over = x − T + 6
+GR = (1 − 1/R) · over² / (over + 12)
+小さい超過では二次的、大きい超過ではレシオ R に漸近`,
+    tries: [['Fairchild風プリセット', PR('fairchild')], ['VCAで伝達カーブを比較', { element: 'vca' }], ['Vari-Muに戻す', { element: 'varimu' }]] },
 };
 const DYN = new Set(['threshold', 'ratio', 'knee', 'release', 'makeup']);
-let exKey = 'threshold';
+let exKey = 'element';
 function selectEx(k) { if (exKey === k) return; exKey = k; renderEx(); }
 function renderEx() {
-  const e = EX[exKey]; if (!e) return;
+  const e = exKey === 'element' ? ELX[P.element] : EX[exKey]; if (!e) return;
+  const offNote = P.element === 'opto' && (exKey === 'attack' || exKey === 'release') ? '光学モードでは無効です。時間特性は光学セル自体が決めます（ゲイン素子の解説を参照）。'
+    : P.element === 'varimu' && exKey === 'knee' ? 'Vari-Muモードでは無効です。真空管の特性そのものが広いニーを持っています。' : '';
   let extra = '';
   if (exKey === 'threshold' || exKey === 'ratio' || exKey === 'knee') {
-    const x = -6, y = CompCore.curve(x, P.threshold, P.ratio, P.knee), x2 = P.threshold - 6, y2 = CompCore.curve(x2, P.threshold, P.ratio, P.knee);
+    const x = -6, y = CompCore.curve(x, P.threshold, P.ratio, P.knee, P.element), x2 = P.threshold - 6, y2 = CompCore.curve(x2, P.threshold, P.ratio, P.knee, P.element);
     extra = `<div class="calc">現在の設定で：入力 −6.0 dB → 出力 ${neg(y)} dB（GR ${(x - y).toFixed(1)} dB）／入力 ${neg(x2)} dB → GR ${(x2 - y2).toFixed(1)} dB</div>`;
   }
   let typ = e.typ.slice();
@@ -701,7 +769,7 @@ function renderEx() {
     const s = getSource(curKey), bpm = s.bpm || 120, q = 60000 / bpm;
     typ.unshift(`いまの音源（${bpm} BPM${s.bpm ? '' : '・不明のため仮定'}）：4分音符 = ${Math.round(q)} ms、8分音符 = ${Math.round(q / 2)} ms`);
   }
-  $('#ex').innerHTML = `<p class="eyebrow">${e.en}</p><h3>${e.jp}</h3><p class="what">${e.what}</p>
+  $('#ex').innerHTML = `<p class="eyebrow">${e.en}</p><h3>${e.jp}</h3><p class="what">${e.what}</p>${offNote ? `<p class="calc">${offNote}</p>` : ''}
     ${e.body.map((t) => `<p>${t}</p>`).join('')}
     <h4>目安</h4><ul>${typ.map((t) => `<li>${t}</li>`).join('')}</ul>
     <h4>DSPでは</h4><div class="formula">${e.f}</div>${extra}
@@ -765,6 +833,11 @@ function drawTimeline(t, r) {
   g.beginPath(); g.moveTo(X(0), top2);
   for (let j = 0; j < n; j++) g.lineTo(X(j), Yg(r.gr[idx(j)]));
   g.lineTo(X(n - 1), top2); g.closePath(); g.globalAlpha = 0.85; g.fillStyle = t.gr; g.fill(); g.globalAlpha = 1;
+  if (P.element === 'opto') {
+    g.beginPath();
+    for (let j = 0; j < n; j++) { const y = top2 + r.mem[idx(j)] * h2; j ? g.lineTo(X(j), y) : g.moveTo(X(j), y); }
+    g.setLineDash([2, 3]); g.strokeStyle = t.ink; g.lineWidth = 1.4; g.stroke(); g.setLineDash([]); g.lineWidth = 1;
+  }
   g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = t.muted;
   g.fillText(playing ? '← 3秒前　現在 →' : '0 s → 3 s', w - padR, h - 2 > top2 ? top2 - 8 : h - 2);
 }
@@ -772,7 +845,7 @@ function drawTransfer(t) {
   const { w, h, g } = fit(tc, null);
   const lo = -60, hi = 6, padL = 34, padB = 26, padT = 8, padR = 10;
   const X = (d) => padL + (d - lo) / (hi - lo) * (w - padL - padR), Y = (d) => padT + (1 - (d - lo) / (hi - lo)) * (h - padT - padB);
-  const T = P.threshold, R = P.ratio, W = P.knee;
+  const T = P.threshold, R = P.ratio, W = P.element === 'varimu' ? 0 : P.knee;
   g.font = `10px ${t.mono}`; g.lineWidth = 1;
   if (W > 0) { g.fillStyle = t.accent; g.globalAlpha = 0.1; g.fillRect(X(T - W / 2), padT, X(T + W / 2) - X(T - W / 2), h - padT - padB); g.globalAlpha = 1; }
   for (let d = -60; d <= 0; d += 12) {
@@ -786,7 +859,7 @@ function drawTransfer(t) {
   g.fillStyle = t.ink; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('T', X(T) + 4, padT + 2);
   g.save(); g.beginPath(); g.rect(padL, padT, w - padL - padR, h - padT - padB); g.clip();
   g.beginPath();
-  for (let d = lo; d <= hi; d += 0.25) { const y = Y(CompCore.curve(d, T, R, W) + P.makeup); d === lo ? g.moveTo(X(d), y) : g.lineTo(X(d), y); }
+  for (let d = lo; d <= hi; d += 0.25) { const y = Y(CompCore.curve(d, T, R, W, P.element) + P.makeup); d === lo ? g.moveTo(X(d), y) : g.lineTo(X(d), y); }
   g.strokeStyle = t.accent; g.lineWidth = 2.2; g.stroke();
   if (playing) trail.forEach(([x, y], i) => { g.globalAlpha = (i + 1) / trail.length; g.fillStyle = t.gr; g.beginPath(); g.arc(X(x), Y(y), i === trail.length - 1 ? 5 : 2.5, 0, Math.PI * 2); g.fill(); });
   g.globalAlpha = 1; g.restore();
@@ -831,6 +904,19 @@ psel.innerHTML = '<option value="" disabled>プリセット</option>' + PRESETS.
 psel.value = 'default';
 psel.addEventListener('change', () => { const p = PRESETS.find((x) => x[0] === psel.value); if (p) applyParams({ ...DEFAULTS, ...p[2] }); });
 $('#play').addEventListener('click', togglePlay);
+// スペースバーで再生／停止（DAWと同じ操作感）
+const spaceSkip = (t) => t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' ||
+  (t.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button', 'file'].includes(t.type));
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (spaceSkip(e.target)) return;
+  e.preventDefault();               // ページスクロールと、フォーカス中ボタンの二重発火を防ぐ
+  if (e.repeat) return;             // 長押しの連打を無視
+  togglePlay();
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space' && !spaceSkip(e.target)) e.preventDefault();  // ボタンのkeyup時クリックを抑止
+});
 $('#src').addEventListener('change', (e) => switchSource(e.target.value));
 $('#bypass').addEventListener('click', () => { P.bypass = !P.bypass; $('#bypass').setAttribute('aria-pressed', P.bypass); $('#bypass').textContent = P.bypass ? 'バイパス中' : 'バイパス'; paramChanged(); });
 $('#file').addEventListener('change', async (e) => {

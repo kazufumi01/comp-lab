@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="A free learning app that lets you hear and see how a compressor’s threshold, ratio, attack, release, knee, detector and feedback topology work — with real DSP running in your browser.">
+<meta name="description" content="A free learning app that lets you hear and see how a compressor’s threshold, ratio, attack, release, knee, detector, feedback topology and gain element (VCA, FET, opto, variable-mu) work — with real DSP running in your browser.">
 <meta name="theme-color" content="#0d6575">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="Compressor Anatomy Lab">
 <meta property="og:title" content="Compressor Anatomy Lab — understand compression by ear and by eye">
-<meta property="og:description" content="A free learning app that lets you hear and see how a compressor’s threshold, ratio, attack, release, knee, detector and feedback topology work — with real DSP running in your browser.">
+<meta property="og:description" content="A free learning app that lets you hear and see how a compressor’s threshold, ratio, attack, release, knee, detector, feedback topology and gain element (VCA, FET, opto, variable-mu) work — with real DSP running in your browser.">
 <meta property="og:url" content="https://kazufumi01.github.io/comp-lab/en/">
 <meta property="og:image" content="https://kazufumi01.github.io/comp-lab/en/ogp.png">
 <meta property="og:image:width" content="1200">
@@ -112,7 +112,7 @@ legend b{font-size:13px}
 .ctl output{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
 .ctl input[type=range]{grid-column:1/-1}
 .ctl.dim{opacity:.45}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;grid-column:1/-1;margin-top:4px;width:max-content;max-width:100%}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:4px;overflow:hidden;grid-column:1/-1;margin-top:4px;width:max-content;max-width:100%}
 .seg button{font:inherit;font-size:12px;background:transparent;color:var(--ink);border:0;padding:5px 12px;cursor:pointer;min-height:30px}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
@@ -165,7 +165,7 @@ a{color:var(--accent)}
       <a class="lang" href="../" hreflang="ja" lang="ja">日本語</a>
     </div>
     <div class="transport">
-      <button class="btn primary" id="play" type="button">▶ Play</button>
+      <button class="btn primary" id="play" type="button" title="Play / stop (Space)" aria-keyshortcuts="Space">▶ Play</button>
       <select class="sel" id="src" aria-label="Source">
         <option value="loop">Drums + bass + pad (92 BPM)</option>
         <option value="snare">Single snare hits (80 BPM, for watching attack)</option>
@@ -188,6 +188,7 @@ a{color:var(--accent)}
           <span><i style="background:var(--accent)"></i>Output peak</span>
           <span><i style="background:var(--gr)"></i>Gain reduction</span>
           <span><i style="background:transparent;border-top:2px dashed var(--ink);height:0;border-radius:0"></i>Threshold</span>
+          <span id="lg-mem" hidden><i style="background:transparent;border-top:2px dotted var(--ink);height:0;border-radius:0"></i>Cell memory (opto only, 0–1)</span>
         </div>
         <p class="note" id="tlnote">While stopped, the first 3 seconds are rendered offline through the same DSP. Move any parameter and it re-renders instantly.</p>
       </section>
@@ -228,7 +229,7 @@ a{color:var(--accent)}
           <circle class="dot" cx="266" cy="48" r="3"/>
           <path class="wire" d="M266 48 V14 H495 V30" marker-end="url(#ah)"/>
           <text class="lab" x="380" y="27">Dry (unprocessed)</text>
-          <g class="blk" data-k="vca" tabindex="0" role="button" aria-label="Gain element VCA"><circle class="box" cx="300" cy="48" r="18"/><text x="300" y="53" style="font-size:16px">×</text></g>
+          <g class="blk" data-k="element" tabindex="0" role="button" aria-label="Gain element"><circle class="box" cx="300" cy="48" r="18"/><text x="300" y="53" style="font-size:16px">×</text><text class="sub" id="el-label" x="290" y="86" style="text-anchor:end">VCA</text></g>
           <path class="wire" d="M318 48 H344" marker-end="url(#ah)"/>
           <circle class="dot fb" cx="330" cy="48" r="3"/>
           <g class="blk" data-k="makeup" tabindex="0" role="button" aria-label="Makeup"><rect class="box" x="344" y="30" width="88" height="36" rx="4"/><text x="388" y="52">Makeup</text></g>
@@ -265,8 +266,8 @@ a{color:var(--accent)}
 
   <footer class="foot">
     <div class="links"><a href="https://jpk.seesaa.net/article/521843924.html" target="_blank" rel="noopener">Blog: compressor learning map (Japanese)</a><span>Made by Kazufumi Nishida (JPK) with Claude, Perplexity and others</span></div>
-    <p>The DSP on this page is an educational implementation for learning how compressors work. It does not reproduce the sound of any specific hardware or plugin.</p>
-    <p>Product and model names on this page (1176, LA-2A, Fairchild, FabFilter Pro-C and others) are trademarks or registered trademarks of their respective owners. They are mentioned for explanation only; this page is not affiliated with them.</p>
+    <p>The DSP on this page is an educational implementation for learning how compressors work. The VCA, FET, opto and variable-mu modes are simplified models of how each element behaves; they do not reproduce the sound of any specific hardware or plugin.</p>
+    <p>Product and model names on this page (1176, LA-2A, Fairchild, Manley, SSL, dbx, API, FabFilter Pro-C and others) are trademarks or registered trademarks of their respective owners. They are mentioned for explanation only; this page is not affiliated with them.</p>
     <p>Reference: D. Giannoulis, M. Massberg, J. D. Reiss, "Digital Dynamic Range Compressor Design — A Tutorial and Analysis," J. Audio Eng. Soc., vol. 60, no. 6, 2012.</p>
   </footer>
 </div>
@@ -276,8 +277,8 @@ class CompLabProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.c = new CompCore(sampleRate);
-    this.m = new Float32Array(4);
-    this.out = new Float32Array(16);
+    this.m = new Float32Array(5);
+    this.out = new Float32Array(20);
     this.k = 0;
     this.scratch = new Float32Array(128);
     this.port.onmessage = (e) => this.c.set(e.data);
@@ -288,7 +289,7 @@ class CompLabProcessor extends AudioWorkletProcessor {
     const n = o[0].length;
     if (this.scratch.length < n) this.scratch = new Float32Array(n);
     this.c.run(i[0], i[1] || i[0], o[0], o[1] || this.scratch, n, this.m);
-    this.out.set(this.m, this.k * 4);
+    this.out.set(this.m, this.k * 5);
     if (++this.k === 4) { this.port.postMessage(this.out.slice(0)); this.k = 0; }
     return true;
   }
@@ -302,8 +303,10 @@ class CompCore {
   constructor(fs) {
     this.fs = fs;
     this.p = { input: 0, threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4,
-               detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 1, bypass: false };
+               detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 1, bypass: false, element: 'vca' };
     this.ms = 0; this.gs = 0; this.fbL = 0; this.fbR = 0;
+    this.gF = 0; this.gS = 0; this.mem = 0;
+    this.dxL = 0; this.dyL = 0; this.dxR = 0; this.dyR = 0;
     this.size = Math.ceil(fs * 0.012) + 2;
     this.dL = new Float32Array(this.size); this.dR = new Float32Array(this.size); this.w = 0;
     this.set({});
@@ -313,18 +316,26 @@ class CompCore {
     const p = this.p, fs = this.fs;
     const tc = (ms) => Math.exp(-1 / (Math.max(ms, 0.001) * 0.001 * fs));
     this.aA = tc(p.attack); this.aR = tc(p.release); this.aM = tc(p.rms);
+    this.oFA = tc(10); this.oFR = tc(60); this.oSA = tc(30); this.oMU = tc(1500); this.oMD = tc(4000);
+    this.dcR = Math.exp(-2 * Math.PI * 8 / fs);
     this.la = Math.min(this.size - 1, Math.round(p.lookahead * 0.001 * fs));
     this.gIn = Math.pow(10, p.input / 20); this.gMk = Math.pow(10, p.makeup / 20);
   }
-  static curve(x, T, R, W) {
+  /* static characteristic: output dB for input dB */
+  static curve(x, T, R, W, el) {
+    if (el === 'varimu') {                       // ratio rises with level, knee is built in
+      const over = x - T + 6;
+      return over <= 0 ? x : x - (1 - 1 / R) * over * over / (over + 12);
+    }
     const d = x - T;
     if (2 * d < -W) return x;
     if (W > 0 && 2 * Math.abs(d) <= W) return x + (1 / R - 1) * (d + W / 2) * (d + W / 2) / (2 * W);
     return T + d / R;
   }
   run(iL, iR, oL, oR, n, m) {
-    const p = this.p, T = p.threshold, R = p.ratio, W = p.knee;
+    const p = this.p, T = p.threshold, R = p.ratio, W = p.knee, el = p.element, fs = this.fs;
     const rms = p.detector === 'rms', fb = p.topology === 'fb', mix = p.mix, byp = p.bypass;
+    const opto = el === 'opto', colour = el === 'fet' || el === 'varimu';
     let inPk = 0, outPk = 0, grMax = 0, lvlMax = -150;
     for (let i = 0; i < n; i++) {
       const xl = iL[i] * this.gIn, xr = iR[i] * this.gIn;
@@ -333,15 +344,36 @@ class CompCore {
       if (rms) { const e = Math.max(sl * sl, sr * sr); this.ms = this.aM * this.ms + (1 - this.aM) * e; lvl = Math.sqrt(this.ms); }
       else lvl = Math.max(Math.abs(sl), Math.abs(sr));
       const xdB = lvl > 1e-7 ? 20 * Math.log10(lvl) : -140;
-      const gc = xdB - CompCore.curve(xdB, T, R, W);
-      const a = gc > this.gs ? this.aA : this.aR;
-      this.gs = a * this.gs + (1 - a) * gc;
+      const gc = xdB - CompCore.curve(xdB, T, R, W, el);
+      if (opto) {
+        /* EL panel + CdS cell: fast half (10/60 ms) + slow half whose release grows with "memory" */
+        const aF = gc > this.gF ? this.oFA : this.oFR;
+        this.gF = aF * this.gF + (1 - aF) * gc;
+        const aS = gc > this.gS ? this.oSA : Math.exp(-1 / ((0.5 + 4.5 * this.mem) * fs));
+        this.gS = aS * this.gS + (1 - aS) * gc;
+        const tgt = Math.min(1, gc / 12), aMm = tgt > this.mem ? this.oMU : this.oMD;
+        this.mem = aMm * this.mem + (1 - aMm) * tgt;
+        this.gs = 0.5 * this.gF + 0.5 * this.gS;
+      } else {
+        const a = gc > this.gs ? this.aA : this.aR;
+        this.gs = a * this.gs + (1 - a) * gc;
+      }
       this.dL[this.w] = xl; this.dR[this.w] = xr;
       let r = this.w - this.la; if (r < 0) r += this.size;
       const dl = this.dL[r], dr = this.dR[r];
       if (++this.w >= this.size) this.w = 0;
       const g = Math.pow(10, -this.gs / 20);
-      const wl = dl * g, wr = dr * g;
+      let wl = dl * g, wr = dr * g;
+      if (colour) {
+        /* FET: distortion grows with GR / Vari-Mu: steady even-order tube colour */
+        const gn = Math.min(this.gs, 20) / 20;
+        const dv = el === 'fet' ? 0.5 + 1.5 * gn : 0.8 + 0.4 * gn;
+        const a2 = el === 'fet' ? 0.05 + 0.2 * gn : 0.15 + 0.1 * gn;
+        const ul = Math.tanh(dv * (wl + a2 * wl * wl)) / dv, ur = Math.tanh(dv * (wr + a2 * wr * wr)) / dv;
+        const yl = ul - this.dxL + this.dcR * this.dyL, yr = ur - this.dxR + this.dcR * this.dyR;
+        this.dxL = ul; this.dyL = yl; this.dxR = ur; this.dyR = yr;
+        wl = yl; wr = yr;
+      }
       this.fbL = wl; this.fbR = wr;
       let yl, yr;
       if (byp) { yl = dl; yr = dr; }
@@ -352,7 +384,7 @@ class CompCore {
       if (this.gs > grMax) grMax = this.gs;
       if (xdB > lvlMax) lvlMax = xdB;
     }
-    m[0] = inPk; m[1] = outPk; m[2] = grMax; m[3] = lvlMax;
+    m[0] = inPk; m[1] = outPk; m[2] = grMax; m[3] = lvlMax; m[4] = this.mem;
   }
 }
 </script>
@@ -367,7 +399,7 @@ const toDb = (v) => (v > 1e-6 ? 20 * Math.log10(v) : -120);
 
 /* ---------- parameters ---------- */
 const DEFAULTS = { input: 0, threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4,
-  detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 100 };
+  detector: 'peak', rms: 10, topology: 'ff', lookahead: 0, mix: 100, element: 'vca' };
 const P = { ...DEFAULTS, bypass: false };
 
 const fmtMs = (v) => v < 1 ? Math.round(v * 1000) + ' µs' : v < 10 ? v.toFixed(1) + ' ms' : Math.round(v) + ' ms';
@@ -384,10 +416,12 @@ const CTRL = {
   mix:       { jp: 'Mix', en: 'Dry / Wet', min: 0, max: 100, step: 1, fmt: (v) => Math.round(v) + ' %' },
 };
 const SEGS = {
+  element: { jp: 'Gain element', en: 'Element', opts: [['vca', 'VCA'], ['fet', 'FET'], ['opto', 'Opto'], ['varimu', 'Vari-Mu']] },
   detector: { jp: 'Detector', en: 'Detector', opts: [['peak', 'Peak'], ['rms', 'RMS']] },
   topology: { jp: 'Topology', en: 'Topology', opts: [['ff', 'Feed-forward'], ['fb', 'Feedback']] },
 };
 const GROUPS = [
+  { en: 'Gain element', jp: 'What does the turning down', keys: ['element'] },
   { en: 'Input', jp: 'Gain staging', keys: ['input'] },
   { en: 'Gain computer', jp: 'How much to compress', keys: ['threshold', 'ratio', 'knee'] },
   { en: 'Ballistics', jp: 'How fast to react', keys: ['attack', 'release'] },
@@ -395,14 +429,17 @@ const GROUPS = [
   { en: 'Output', jp: 'Level and blend', keys: ['makeup', 'mix'] },
 ];
 const PRESETS = [
-  ['default', 'Default', {}],
-  ['vocal', 'Vocal (opto-style: FB + RMS)', { threshold: -24, ratio: 3, knee: 12, attack: 10, release: 300, makeup: 5, detector: 'rms', rms: 30, topology: 'fb' }],
+  ['default', 'Default (VCA)', {}],
+  ['la2a', 'LA-2A style (opto, FB)', { element: 'opto', threshold: -26, ratio: 3, knee: 12, makeup: 5, detector: 'rms', rms: 10, topology: 'fb' }],
+  ['1176', '1176 style (FET, fast attack)', { element: 'fet', threshold: -24, ratio: 4, knee: 2, attack: 0.4, release: 150, makeup: 6 }],
+  ['fairchild', 'Fairchild style (vari-mu, bus)', { element: 'varimu', threshold: -18, ratio: 6, attack: 1, release: 400, makeup: 3, detector: 'rms', rms: 10 }],
   ['drumbus', 'Drum bus (let the attack through)', { threshold: -20, ratio: 4, knee: 3, attack: 30, release: 80, makeup: 4 }],
   ['fast', 'Fast attack (squash the peaks)', { threshold: -22, ratio: 8, knee: 0, attack: 0.2, release: 60, makeup: 7 }],
   ['glue', 'Mix bus (glue)', { threshold: -14, ratio: 2, knee: 6, attack: 30, release: 326, makeup: 1.5, detector: 'rms', rms: 10 }],
   ['limit', 'Limiter (lookahead)', { threshold: -8, ratio: 20, knee: 0, attack: 0.5, release: 50, makeup: 6, lookahead: 5 }],
   ['ny', 'NY parallel', { threshold: -36, ratio: 10, knee: 0, attack: 1, release: 60, makeup: 10, mix: 35 }],
 ];
+const PR = (k) => ({ ...DEFAULTS, ...PRESETS.find((x) => x[0] === k)[2] });
 
 /* ---------- test signals ---------- */
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 * 2 - 1; }; }
@@ -479,17 +516,17 @@ function getSource(k) {
 }
 
 /* ---------- rings & offline preview ---------- */
-function makeRing(sr) { const n = Math.floor(SIM_SEC * sr / BLOCK); return { n, inp: new Float32Array(n), out: new Float32Array(n), gr: new Float32Array(n), w: 0 }; }
-function push(r, a, b, c) { r.inp[r.w] = a; r.out[r.w] = b; r.gr[r.w] = c; r.w = (r.w + 1) % r.n; }
+function makeRing(sr) { const n = Math.floor(SIM_SEC * sr / BLOCK); return { n, inp: new Float32Array(n), out: new Float32Array(n), gr: new Float32Array(n), mem: new Float32Array(n), w: 0 }; }
+function push(r, a, b, c, d) { r.inp[r.w] = a; r.out[r.w] = b; r.gr[r.w] = c; r.mem[r.w] = d || 0; r.w = (r.w + 1) % r.n; }
 const coreParams = () => ({ ...P, mix: P.mix / 100 });
 let simRing = null, needSim = true;
 function simulate() {
   const s = getSource(curKey), core = new CompCore(s.sr); core.set(coreParams());
   const ring = makeRing(s.sr), len = s.L.length;
-  const bl = new Float32Array(BLOCK), br = new Float32Array(BLOCK), oL = new Float32Array(BLOCK), oR = new Float32Array(BLOCK), m = new Float32Array(4);
+  const bl = new Float32Array(BLOCK), br = new Float32Array(BLOCK), oL = new Float32Array(BLOCK), oR = new Float32Array(BLOCK), m = new Float32Array(5);
   for (let b = 0; b < ring.n; b++) {
     for (let i = 0; i < BLOCK; i++) { const j = (b * BLOCK + i) % len; bl[i] = s.L[j]; br[i] = s.R[j]; }
-    core.run(bl, br, oL, oR, BLOCK, m); push(ring, m[0], m[1], m[2]);
+    core.run(bl, br, oL, oR, BLOCK, m); push(ring, m[0], m[1], m[2], m[4]);
   }
   ring.w = 0; simRing = ring;
 }
@@ -542,11 +579,11 @@ async function togglePlay() {
 }
 function onMeter(e) {
   const a = e.data;
-  for (let k = 0; k < 4; k++) { const o = k * 4; push(liveRing, a[o], a[o + 1], a[o + 2]);
+  for (let k = 0; k < 4; k++) { const o = k * 5; push(liveRing, a[o], a[o + 1], a[o + 2], a[o + 4]);
     const x = P.topology === 'fb' ? toDb(a[o]) : a[o + 3];
     if (x > -70) trail.push([x, x - a[o + 2] + P.makeup]); }
   if (trail.length > 28) trail = trail.slice(-28);
-  live.gr = a[14];
+  live.gr = a[17];
 }
 function sendParams() { if (node) node.port.postMessage(coreParams()); }
 
@@ -585,14 +622,16 @@ function syncControls() {
     $('#v-' + k).textContent = c.fmt(P[k]);
   });
   Object.keys(SEGS).forEach((k) => SEGS[k].opts.forEach(([v]) => $(`#s-${k}-${v}`).setAttribute('aria-pressed', P[k] === v)));
-  const rmsOn = P.detector === 'rms';
-  $('#c-rms').disabled = !rmsOn; document.querySelector('.ctl[data-k="rms"]').classList.toggle('dim', !rmsOn);
+  const off = { rms: P.detector !== 'rms', attack: P.element === 'opto', release: P.element === 'opto', knee: P.element === 'varimu' };
+  Object.entries(off).forEach(([k, v]) => { $('#c-' + k).disabled = v; document.querySelector(`.ctl[data-k="${k}"]`).classList.toggle('dim', v); });
+  $('#el-label').textContent = { vca: 'VCA', fet: 'FET', opto: 'Opto cell', varimu: 'Vari-mu tube' }[P.element];
+  $('#lg-mem').hidden = P.element !== 'opto';
   $('#flow').dataset.topo = P.topology;
   $('#lat').textContent = `Latency ${P.lookahead.toFixed(1)} ms`;
 }
 function paramChanged(k) {
   syncControls(); sendParams(); needSim = true;
-  if (k && exKey && (k === exKey || DYN.has(exKey))) renderEx();
+  if (k && exKey && (k === exKey || DYN.has(exKey) || k === 'element')) renderEx();
 }
 function applyParams(o) {
   const bpm = getSource(curKey).bpm || 120;
@@ -679,21 +718,50 @@ const EX = {
     typ: ['NY compression: 20–50% wet + heavy compression', 'Normal: 100%'],
     f: `y = mix · (x · g · M) + (1 − mix) · x`,
     tries: [['NY parallel settings', { threshold: -36, ratio: 10, knee: 0, attack: 1, release: 60, mix: 35, makeup: 10 }], ['Back to 100%', { mix: 100 }]] },
-  vca: { jp: 'Gain element (VCA)', en: 'Gain element', what: 'Where the gain calculated by the sidechain is actually multiplied into the audio.',
-    body: ['The sidechain only works out how much to turn down; this multiplication is what changes the sound. In analog gear a VCA (voltage-controlled amplifier), FET (1176), optical cell (LA-2A) or tube (variable-mu) does this job, and each element’s speed and distortion become the compressor’s character.',
-           'In digital it is a plain multiplication, so character comes from the detector and ballistics design, plus any saturation you add on purpose. A good starting point when deciding where your own plugin’s personality should come from.'],
-    typ: ['VCA: fast and accurate', 'FET: very fast attack (1176 style)', 'Optical: slow, program-dependent (LA-2A style)', 'Variable-mu: gentle and thick (Fairchild style)'],
-    f: `y[n] = x[n − D] · 10<sup>−g<sub>s</sub>[n] / 20</sup>`,
-    tries: [] },
+};
+const ELX = {
+  vca: { jp: 'VCA (voltage-controlled amplifier)', en: 'Gain element · VCA', what: 'A transistor circuit that turns the gain down by an exact number of dB for a given control voltage.',
+    body: ['The circuit uses the exponential relationship between a transistor’s current and voltage, so moving the control voltage by a fixed amount changes the gain by a fixed number of dB. Whatever the sidechain calculates becomes the gain change almost exactly, which makes it the “accurate” compressor that does what the settings say.',
+           'Digital multiplication works the same way, so VCA mode behaves as an ideal VCA: no added distortion, and attack and release follow the settings exactly. Use it as the reference when comparing the other elements.'],
+    typ: ['SSL-style bus compressors, dbx 160, API 2500', 'When you want precise peak control and full say over the timing'],
+    f: `y = x · 10<sup>−GR/20</sup>
+no distortion / attack and release follow the settings`,
+    tries: [['Squash peaks with a fast attack', { element: 'vca', threshold: -22, ratio: 8, knee: 0, attack: 0.2, release: 60, makeup: 7 }], ['Same settings, switch to FET', { element: 'fet' }]] },
+  fet: { jp: 'FET', en: 'Gain element · FET', what: 'A field-effect transistor used as a voltage-controlled resistor, bleeding signal to ground in a voltage divider.',
+    body: ['The voltage on a FET’s gate changes the resistance between drain and source. Placed on the ground side of a voltage divider, a lower resistance sends more signal to ground and the level drops. Because it is driven electrically and directly, it reacts extremely fast, with attack times of tens of microseconds.',
+           'The FET’s resistance also depends slightly on the audio voltage across it, so the waveform is bent a little and harmonics grow as gain reduction gets deeper. In this mode, even- and odd-order distortion increases with the amount of GR. Push 10 dB or more of GR and switch against VCA to hear it.'],
+    typ: ['1176 style: attack 20–800 µs, release 50 ms–1.1 s', 'When you want vocals, bass or drums to jump forward'],
+    f: `u = w + a₂·w²        even order (FET asymmetry)
+y = tanh(d·u) / d    odd order (d and a₂ rise with GR)`,
+    tries: [['1176-style preset', PR('1176')], ['Deeper GR (T −34 dB)', { threshold: -34 }], ['Back to VCA to compare', { element: 'vca' }]] },
+  opto: { jp: 'Optical (opto)', en: 'Gain element · Opto', what: 'A light source paired with a cell whose resistance drops when light hits it (a CdS cell); the brightness of the light sets the gain.',
+    body: ['The sidechain lights up an electroluminescent panel. The CdS cell (photoresistor) facing it drops in resistance, and the voltage divider bleeds signal to ground. Because the control goes electricity → light → resistance, the timing is set by the cell’s chemistry. That is why there are no attack or release knobs; they are disabled in this mode too.',
+           'A CdS cell recovers in two stages: roughly the first 50% comes back in about 60 ms, and the rest takes 0.5–5 seconds. On top of that it has a “memory”: the longer and harder it has been lit, the longer the slow stage gets. The dotted line in the GR lane of the timeline shows that memory. On single snare hits the memory barely builds and GR recovers quickly; push the dense loop hard and the memory builds until the GR seems to stick.'],
+    typ: ['LA-2A style: attack ≈10 ms, release ≈60 ms (50%) → 0.5–5 s (full)', 'Vocals: 3–6 dB of GR. Beyond 10 dB the memory stretches the release to seconds'],
+    f: `fast half g<sub>F</sub>: attack 10 ms / release 60 ms
+slow half g<sub>S</sub>: attack 30 ms / release 0.5 s + 4.5 s × memory
+GR = 0.5·g<sub>F</sub> + 0.5·g<sub>S</sub>
+memory → min(1, GR/12)   charge τ 1.5 s / discharge τ 4 s`,
+    tries: [['LA-2A-style preset', PR('la2a')], ['Watch the two-stage release on snare', null, 'snare'], ['Push the loop hard to build memory', { threshold: -36 }, 'loop']] },
+  varimu: { jp: 'Variable-mu (tube)', en: 'Gain element · Variable-mu', what: 'A remote-cutoff tube whose bias is shifted so that the tube’s own gain goes down.',
+    body: ['The sidechain voltage pushes the tube’s bias (grid voltage) deeper, which lowers the tube’s gain (mu). Because the gain falls along a gentle curve, compression is very light at low levels and gets stronger as the level rises. The ratio is not fixed; it rises with level.',
+           'In this mode compression starts 6 dB below the threshold, and the static curve approaches the set ratio as the overshoot grows. The knee is built into the element, so the knee control is disabled. Switch against VCA in the transfer curve and you will see one wide arc with no corner. Tube-style even-order harmonics are added as well.'],
+    typ: ['Fairchild 660/670 style, Manley Vari-Mu', 'Mix bus and mastering: 1–3 dB of GR to pull everything together'],
+    f: `over = x − T + 6
+GR = (1 − 1/R) · over² / (over + 12)
+quadratic for small overshoot, approaches ratio R for large overshoot`,
+    tries: [['Fairchild-style preset', PR('fairchild')], ['Compare the transfer curve with VCA', { element: 'vca' }], ['Back to vari-mu', { element: 'varimu' }]] },
 };
 const DYN = new Set(['threshold', 'ratio', 'knee', 'release', 'makeup']);
-let exKey = 'threshold';
+let exKey = 'element';
 function selectEx(k) { if (exKey === k) return; exKey = k; renderEx(); }
 function renderEx() {
-  const e = EX[exKey]; if (!e) return;
+  const e = exKey === 'element' ? ELX[P.element] : EX[exKey]; if (!e) return;
+  const offNote = P.element === 'opto' && (exKey === 'attack' || exKey === 'release') ? 'Disabled in opto mode. The optical cell itself sets the timing (see the gain element explanation).'
+    : P.element === 'varimu' && exKey === 'knee' ? 'Disabled in vari-mu mode. The tube’s own characteristic already gives a very wide knee.' : '';
   let extra = '';
   if (exKey === 'threshold' || exKey === 'ratio' || exKey === 'knee') {
-    const x = -6, y = CompCore.curve(x, P.threshold, P.ratio, P.knee), x2 = P.threshold - 6, y2 = CompCore.curve(x2, P.threshold, P.ratio, P.knee);
+    const x = -6, y = CompCore.curve(x, P.threshold, P.ratio, P.knee, P.element), x2 = P.threshold - 6, y2 = CompCore.curve(x2, P.threshold, P.ratio, P.knee, P.element);
     extra = `<div class="calc">With current settings: in −6.0 dB → out ${neg(y)} dB (GR ${(x - y).toFixed(1)} dB) / in ${neg(x2)} dB → GR ${(x2 - y2).toFixed(1)} dB</div>`;
   }
   let typ = e.typ.slice();
@@ -701,7 +769,7 @@ function renderEx() {
     const s = getSource(curKey), bpm = s.bpm || 120, q = 60000 / bpm;
     typ.unshift(`Current source (${bpm} BPM${s.bpm ? '' : ', assumed — tempo unknown'}): quarter note = ${Math.round(q)} ms, eighth note = ${Math.round(q / 2)} ms`);
   }
-  $('#ex').innerHTML = `<h3>${e.jp}</h3><p class="what">${e.what}</p>
+  $('#ex').innerHTML = `<h3>${e.jp}</h3><p class="what">${e.what}</p>${offNote ? `<p class="calc">${offNote}</p>` : ''}
     ${e.body.map((t) => `<p>${t}</p>`).join('')}
     <h4>Typical settings</h4><ul>${typ.map((t) => `<li>${t}</li>`).join('')}</ul>
     <h4>In DSP</h4><div class="formula">${e.f}</div>${extra}
@@ -765,6 +833,11 @@ function drawTimeline(t, r) {
   g.beginPath(); g.moveTo(X(0), top2);
   for (let j = 0; j < n; j++) g.lineTo(X(j), Yg(r.gr[idx(j)]));
   g.lineTo(X(n - 1), top2); g.closePath(); g.globalAlpha = 0.85; g.fillStyle = t.gr; g.fill(); g.globalAlpha = 1;
+  if (P.element === 'opto') {
+    g.beginPath();
+    for (let j = 0; j < n; j++) { const y = top2 + r.mem[idx(j)] * h2; j ? g.lineTo(X(j), y) : g.moveTo(X(j), y); }
+    g.setLineDash([2, 3]); g.strokeStyle = t.ink; g.lineWidth = 1.4; g.stroke(); g.setLineDash([]); g.lineWidth = 1;
+  }
   g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = t.muted;
   g.fillText(playing ? '← 3 s ago   now →' : '0 s → 3 s', w - padR, h - 2 > top2 ? top2 - 8 : h - 2);
 }
@@ -772,7 +845,7 @@ function drawTransfer(t) {
   const { w, h, g } = fit(tc, null);
   const lo = -60, hi = 6, padL = 34, padB = 26, padT = 8, padR = 10;
   const X = (d) => padL + (d - lo) / (hi - lo) * (w - padL - padR), Y = (d) => padT + (1 - (d - lo) / (hi - lo)) * (h - padT - padB);
-  const T = P.threshold, R = P.ratio, W = P.knee;
+  const T = P.threshold, R = P.ratio, W = P.element === 'varimu' ? 0 : P.knee;
   g.font = `10px ${t.mono}`; g.lineWidth = 1;
   if (W > 0) { g.fillStyle = t.accent; g.globalAlpha = 0.1; g.fillRect(X(T - W / 2), padT, X(T + W / 2) - X(T - W / 2), h - padT - padB); g.globalAlpha = 1; }
   for (let d = -60; d <= 0; d += 12) {
@@ -786,7 +859,7 @@ function drawTransfer(t) {
   g.fillStyle = t.ink; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('T', X(T) + 4, padT + 2);
   g.save(); g.beginPath(); g.rect(padL, padT, w - padL - padR, h - padT - padB); g.clip();
   g.beginPath();
-  for (let d = lo; d <= hi; d += 0.25) { const y = Y(CompCore.curve(d, T, R, W) + P.makeup); d === lo ? g.moveTo(X(d), y) : g.lineTo(X(d), y); }
+  for (let d = lo; d <= hi; d += 0.25) { const y = Y(CompCore.curve(d, T, R, W, P.element) + P.makeup); d === lo ? g.moveTo(X(d), y) : g.lineTo(X(d), y); }
   g.strokeStyle = t.accent; g.lineWidth = 2.2; g.stroke();
   if (playing) trail.forEach(([x, y], i) => { g.globalAlpha = (i + 1) / trail.length; g.fillStyle = t.gr; g.beginPath(); g.arc(X(x), Y(y), i === trail.length - 1 ? 5 : 2.5, 0, Math.PI * 2); g.fill(); });
   g.globalAlpha = 1; g.restore();
@@ -831,6 +904,19 @@ psel.innerHTML = '<option value="" disabled>Preset</option>' + PRESETS.map(([k, 
 psel.value = 'default';
 psel.addEventListener('change', () => { const p = PRESETS.find((x) => x[0] === psel.value); if (p) applyParams({ ...DEFAULTS, ...p[2] }); });
 $('#play').addEventListener('click', togglePlay);
+// Space bar plays / stops (same feel as a DAW)
+const spaceSkip = (t) => t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' ||
+  (t.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button', 'file'].includes(t.type));
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (spaceSkip(e.target)) return;
+  e.preventDefault();               // stop page scroll and a double trigger on the focused button
+  if (e.repeat) return;             // ignore key repeat while held
+  togglePlay();
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space' && !spaceSkip(e.target)) e.preventDefault();  // stop the button click that keyup would fire
+});
 $('#src').addEventListener('change', (e) => switchSource(e.target.value));
 $('#bypass').addEventListener('click', () => { P.bypass = !P.bypass; $('#bypass').setAttribute('aria-pressed', P.bypass); $('#bypass').textContent = P.bypass ? 'Bypassed' : 'Bypass'; paramChanged(); });
 $('#file').addEventListener('change', async (e) => {
